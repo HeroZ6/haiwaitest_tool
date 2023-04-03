@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>764</width>
-    <height>722</height>
+    <width>856</width>
+    <height>700</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -20,7 +20,7 @@
       <item>
        <layout class="QHBoxLayout" name="ouertui_2" stretch="1">
         <item>
-         <layout class="QHBoxLayout" name="input_ui" stretch="1,8,1">
+         <layout class="QHBoxLayout" name="input_ui" stretch="1,7,1">
           <property name="sizeConstraint">
            <enum>QLayout::SetDefaultConstraint</enum>
           </property>
@@ -33,13 +33,13 @@
              </sizepolicy>
             </property>
             <property name="text">
-             <string>packname:</string>
+             <string>packagename:</string>
             </property>
             <property name="textFormat">
              <enum>Qt::AutoText</enum>
             </property>
             <property name="alignment">
-             <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+             <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
             </property>
            </widget>
           </item>
@@ -86,11 +86,11 @@
              <enum>Qt::Horizontal</enum>
             </property>
             <property name="sizeType">
-             <enum>QSizePolicy::Fixed</enum>
+             <enum>QSizePolicy::Ignored</enum>
             </property>
             <property name="sizeHint" stdset="0">
              <size>
-              <width>95</width>
+              <width>80</width>
               <height>20</height>
              </size>
             </property>
@@ -280,6 +280,16 @@
         </item>
        </layout>
       </item>
+      <item>
+       <widget class="QLabel" name="label_2">
+        <property name="text">
+         <string>v0.5 HeroZ</string>
+        </property>
+        <property name="alignment">
+         <set>Qt::AlignCenter</set>
+        </property>
+       </widget>
+      </item>
      </layout>
     </item>
    </layout>
@@ -289,7 +299,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>764</width>
+     <width>856</width>
      <height>23</height>
     </rect>
    </property>

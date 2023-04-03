@@ -4,23 +4,10 @@ import pyqtgraph as pg
 from PySide2.QtUiTools import QUiLoader
 import sys
 import subprocess
-import os, re, requests, json, urllib
-from PySide2.QtCore import QCoreApplication, QObject, QRunnable, QThreadPool, QTimer, Qt, QCoreApplication
+import os, re, requests
 from pyqtgraph.Qt import QtCore
-from PySide2.QtWidgets import QInputDialog, QLineEdit
+from PySide2.QtWidgets import QLineEdit
 import datetime
-
-
-# class Worker(QRunnable):
-#     def __init__(self, parent=None):
-#         super(Worker, self).__init__(parent)
-#         self.should_stop = False
-#
-#     def run(self):
-#         while not self.should_stop:
-#             # 在这里执行操作，如果要停止线程，请设置 self.should_stop 为 True，然后跳出循环
-#             pass
-
 
 class Stats:
 
