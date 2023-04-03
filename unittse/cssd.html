@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+      <meta charset="UTF-8">
+      <title>Eingpan的测试工具</title>
+    </head>
+    <body>
+            <a href='https://edc.vigame.cn/#/login'> <img src='imgs/dnwx.jpg'> </a>
+            <br>
+            <form action="https://www.baidu.com" method="get">
+                <h2>
+                    配置校验
+                </h2>
+                <p>
+                    <label>产品名称: </label>
+                    <input type="text">
+                </p>
+                <p>
+                    <label>appid:   </label>
+                    <input type="text" name="appid">
+                </p>
+                <p>
+                    <label>项目id:   </label>
+                    <input type="text">
+                </p>
+                <p>
+                    <label>渠道:     </label>
+                    <input type="text">
+                </p>
+                <p>
+                    <label>选择查询接口: </label>
+                <!-- select: 下拉列表 option: 列表项 -->
+                <select name="site">
+                    <option value="1">v2协议</option>
+                    <option value="5">广告配置/广告策略</option>
+                    <option value="2">新闻配置</option>
+                    <option value="3">tab控制</option>
+                    <option value="4">all</option>
+                </select>
+                </p>
+
+                <p>
+                    <label>选择检查方式: </label>
+                <!-- select: 下拉列表 option: 列表项 -->
+                <select name="ck">
+                    <option value="1">是否与模板相符</option>
+                    <option value="2">阅读接口返回</option>
+                    <option value="3">查看关键内容</option>
+                </select>
+                </p>
+
+                <p>
+                <!-- submit: 提交 reset: 重置 button: 普通按钮 -->
+                    <input type="submit" value="检查">
+                    <input type="reset" value="重置">
+                </p>
+
+            </form>
+            <hr>
+
+            <form>
+                <h2>
+                    自动化测试脚本执行
+                </h2>
+                <p>
+                    <label>选择apk的路径   </label>
+                    <input type="file">
+                </p>
+                <input type="submit" value="保活自动化测试">
+                <input type="submit" value="单项应用外场景暴力测试">
+                <input type="submit" value="执行自动化测试">
+            </form>
+    </body>
+</html>

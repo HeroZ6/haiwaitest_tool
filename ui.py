@@ -1,5 +1,7 @@
 import threading
-from PySide2.QtWidgets import QApplication, QDialog, QVBoxLayout, QPushButton
+import time
+import uiautomator2 as u2
+from PySide2.QtWidgets import QApplication, QDialog, QVBoxLayout, QPushButton, QMessageBox
 import pyqtgraph as pg
 from PySide2.QtUiTools import QUiLoader
 import sys
@@ -8,12 +10,19 @@ import os, re, requests
 from pyqtgraph.Qt import QtCore
 from PySide2.QtWidgets import QLineEdit
 import datetime
+from aotudriver.get_info import GetInfo
+from Eingpan import activiting
+
 
 class Stats:
 
     def __init__(self):
+        self.apppath = None
         self.old_pid = None
         self.packname = None
+        self.apkpath = None
+        self.tips_windows = QMessageBox()
+        self.paths = ''
         self.force_stop_num = 0
         self.reset_process_num = 0
         self.i = None
@@ -29,17 +38,23 @@ class Stats:
         self.ui.process_clear.clicked.connect(self.clear_process)
         self.ui.stop_button.clicked.connect(self.stop_timer)
         self.ui.force_stop.clicked.connect(self.force_stop)
-        # 提示框
-        pack_name_button = QPushButton('OK')
-        self.pack_name_line = QLineEdit('')
-        VBoxLayout = QVBoxLayout()  # 垂直布局
-        VBoxLayout.addWidget(self.pack_name_line)  # 布局的顺序与添加的顺序有关
-        VBoxLayout.addWidget(pack_name_button)
-        self.Dialog = QDialog()
-        self.Dialog.setLayout(VBoxLayout)
+        self.ui.uninstall_bt.clicked.connect(self.uninstall)
+        self.ui.common_install.clicked.connect(self.install_apk)
+        self.ui.debug_install.clicked.connect(self.debug_install_t)
+
+
+    # 错误弹窗
+    def wrong_tip(self, path):
+        if str(path) == '':
+            self.tips_windows.critical(
+                self.ui,
+                '错误',
+                '路径不能为空！')
+            self.stop_timer()
+            return
 
     def print_text(self, function):
-        content = f'{datetime.datetime.now().strftime("%Y-%m-%d_%H:%M:%S")}\n==============start=================\n{function}\n'
+        content = f'{datetime.datetime.now().strftime("%Y-%m-%d_%H:%M:%S")}\n==============logs=================\n{function}\n'
         self.ui.result_label.insertPlainText(content)
 
     # 获取当前进程pid
@@ -70,8 +85,8 @@ class Stats:
             r = r.get(url)
             p = re.compile('(?<=<td>)(.*?)(?=&)')
             country = p.findall(r.text)[0]
-            result = f"====================环境检测结果====================\nIP：{ip_address}\n地区：{country}\n备型号：{device_info}\n=========================End========================"
-            self.ui.result_label.insertPlainText(str(result))
+            result = f"IP：{ip_address}\n地区：{country}\n备型号：{device_info}\n"
+            self.print_text(result)
         except Exception as e:
             print("获取检测信息失败：", e)
             self.ui.result_label.insertPlainText(str(e))
@@ -94,6 +109,16 @@ class Stats:
         self.packname = self.ui.packname_input.text()
         return self.packname
 
+    # 获取输入的apk路径
+    def get_apkpath(self):
+        self.apkpath = self.ui.apk_path.text()
+        return self.apkpath
+    # def get_filepath(self):
+    #     content = self.ui.result_label.text()
+    #     p = re.compile('file:///.*')
+    #     file_path = p.findall(content)
+    #     self.ui.apk_path.setText(str(file_path))
+    #     print(file_path)
     # 停止进程
     def stop_timer(self):
         self.update_timer.stop()  # 停止 QTimer
@@ -106,9 +131,7 @@ class Stats:
 
     # 实时更新图
     def start_plot(self):
-        if str(self.get_packname()) is None:
-            self.Dialog.show()
-
+        self.wrong_tip(self.get_packname())
         self.i = 0
         self.x = [0]
         self.y = [0]
@@ -141,11 +164,38 @@ class Stats:
     def reset_process(self, last_pid, old_pid):
         if int(old_pid) == 0:
             pass
-        elif str(last_pid) != str(old_pid):
+        elif str(last_pid) != str(old_pid) and int(last_pid) != 0:
             self.reset_process_num += 1
             self.print_text(f'进程重启{self.reset_process_num}次\n')
         else:
             pass
+
+    def uninstall(self):
+        self.wrong_tip(self.get_packname())
+        cmd = f'adb uninstall {self.get_packname()}'
+        result = os.popen(cmd)
+        self.print_text(str(result.read()))
+
+    def install_apk(self):
+        self.wrong_tip(self.get_apkpath())
+        cmd = f'adb install {self.get_apkpath()}'
+        result = os.popen(cmd)
+        self.print_text(str(result.read()))
+        self.ui.packname_input.setText(str(GetInfo().get_appPackagename(self.apppath)))
+    def debug_install_t(self):
+        self.wrong_tip(self.get_apkpath())
+        thread = threading.Thread(target=self.debug_install)
+        thread.start()
+
+    def debug_install(self):
+        debugpath = r'D:\to'
+        self.apppath = self.ui.apk_path.text()
+        apppath = str(self.apppath).replace('"', '')
+        get = GetInfo()
+        device = u2.connect_usb(get.get_deviceids())
+        acti = activiting(device)
+        self.print_text(acti.install_and_debug(apppath, debugpath))
+        self.ui.packname_input.setText(str(GetInfo().get_appPackagename(self.apppath)))
 
 
 if __name__ == '__main__':
