@@ -17,6 +17,8 @@ from Eingpan import activiting
 class Stats:
 
     def __init__(self):
+        self.time = 0
+        self.one = 0
         self.test_time = 0
         self.apppath = None
         self.old_pid = None
@@ -44,9 +46,23 @@ class Stats:
         self.ui.debug_install.clicked.connect(self.debug_install_t)
         self.ui.auto_getpath.clicked.connect(self.get_path)
         self.ui.refresh.clicked.connect(self.get_devices)
-        # self.ui.start_time.clicked.connect(self.count_down_t)
+        self.ui.start_time.clicked.connect(self.count_down_t)
 
+    def count_down_t(self):
+        self.time = self.ui.down_num.value()*60
+        self.ui.proce_result.insertPlainText(f'{datetime.datetime.now().strftime("%Y-%m-%d_%H:%M:%S")}\n开始倒计时{self.time}秒\n')
+        self.clock_timer = QtCore.QTimer()
+        self.clock_timer.timeout.connect(self.count_down)
+        self.clock_timer.start(5000)  # 1000ms更新一次
+    def stop_timer2(self):
+        self.clock_timer.stop()
+    def count_down(self,):
+        self.z += 5
 
+        if int(self.z) < int(self.time):
+            self.ui.proce_result.insertPlainText(f'还剩{self.one}\n')
+        else:
+            self.stop_timer2()
     def get_devices(self):
         cmd = 'adb shell getprop ro.product.model'
         device = os.popen(cmd).read()
