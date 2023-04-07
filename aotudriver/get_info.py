@@ -195,8 +195,8 @@ class GetInfo:
         if not match:
             raise Exception("can't get packageinfo")
         appPackage = match.group(1)
-        # 还可以返回本版号
-        versionName = match.group(3)
+        # # 还可以返回本版号
+        # versionName = match.group(3)
         return appPackage
 
 
@@ -285,4 +285,6 @@ class GetInfo:
         for index in range(Data_sheet.nrows):
             appinfo_dict[cols[index]] = rows_list[index]
         return appinfo_dict
+
+
 

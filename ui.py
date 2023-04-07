@@ -17,6 +17,7 @@ from Eingpan import activiting
 class Stats:
 
     def __init__(self):
+        self.test_time = 0
         self.apppath = None
         self.old_pid = None
         self.packname = None
@@ -31,7 +32,7 @@ class Stats:
         self.update_timer = None
         loader = QUiLoader()
         loader.registerCustomWidget(pg.PlotWidget)
-        self.ui = QUiLoader().load(r'D:\protect\haiwaitest_tool\ui\newtoolui.ui')
+        self.ui = QUiLoader().load(r'ui\newtoolui.ui')
         self.ui.env_button.clicked.connect(self.get_device_info)
         self.ui.clear_button.clicked.connect(self.clear_result)
         self.ui.process_start.clicked.connect(self.start_plot)
@@ -39,9 +40,35 @@ class Stats:
         self.ui.stop_button.clicked.connect(self.stop_timer)
         self.ui.force_stop.clicked.connect(self.force_stop)
         self.ui.uninstall_bt.clicked.connect(self.uninstall)
-        self.ui.common_install.clicked.connect(self.install_apk)
+        self.ui.common_install.clicked.connect(self.install_apk_t)
         self.ui.debug_install.clicked.connect(self.debug_install_t)
+        self.ui.auto_getpath.clicked.connect(self.get_path)
+        self.ui.refresh.clicked.connect(self.get_devices)
+        # self.ui.start_time.clicked.connect(self.count_down_t)
 
+
+    def get_devices(self):
+        cmd = 'adb shell getprop ro.product.model'
+        device = os.popen(cmd).read()
+        if None:
+            self.ui.device_info.setText('设备未连接,或未打开usb调试')
+        else:
+            self.ui.device_info.setText(f'{str(device)}')
+
+    # 截取路径
+    def get_path(self):
+        try:
+            content = str(self.ui.result_label.toPlainText())
+            p = re.compile('(?<=file:///).+')
+            fpath = p.findall(content)
+            self.ui.apk_path.setText(fpath[0])
+            self.ui.result_label.clear()
+            p1 = re.compile('_(.*?)_')
+            packname = p1.findall(content)[0].replace('_', '')
+            self.ui.packname_input.setText(str(packname))
+
+        except:
+            self.ui.packname_input.setText('非规范文件名,安装后获取包名')
 
     # 错误弹窗
     def wrong_tip(self, path):
@@ -60,14 +87,16 @@ class Stats:
     # 获取当前进程pid
     def pid_now(self):
         pid_cmd = f'adb shell ps|findstr {self.get_packname()}'
-        print(pid_cmd)
         pid_content = os.popen(pid_cmd).read()
+        p = re.compile(self.get_packname())
+        num = p.findall(pid_content)
+
         if str(self.get_packname()) in pid_content:
             p = re.compile('      (\d.*?)   ')
             pid = p.findall(pid_content)[0]
         else:
             pid = 0
-        return pid
+        return pid, pid_content, num
 
     # 获取设备信息
     def get_device_info(self):
@@ -103,6 +132,8 @@ class Stats:
         self.ui.X_line.clear()
         self.ui.Y_line.clear()
         self.ui.time_line.clear()
+        self.ui.pid_count.clear()
+        self.ui.proce_result.clear()
 
     # 获取输入的包名
     def get_packname(self):
@@ -113,12 +144,7 @@ class Stats:
     def get_apkpath(self):
         self.apkpath = self.ui.apk_path.text()
         return self.apkpath
-    # def get_filepath(self):
-    #     content = self.ui.result_label.text()
-    #     p = re.compile('file:///.*')
-    #     file_path = p.findall(content)
-    #     self.ui.apk_path.setText(str(file_path))
-    #     print(file_path)
+
     # 停止进程
     def stop_timer(self):
         self.update_timer.stop()  # 停止 QTimer
@@ -129,6 +155,10 @@ class Stats:
         os.popen(cmd)
         self.print_text(f'手动强停{self.force_stop_num}次')
 
+    def get_interval(self):
+        interval = self.ui.interval.value()
+        return interval
+
     # 实时更新图
     def start_plot(self):
         self.wrong_tip(self.get_packname())
@@ -137,7 +167,7 @@ class Stats:
         self.y = [0]
         self.update_timer = QtCore.QTimer()
         self.update_timer.timeout.connect(self.updateData)
-        self.update_timer.start(1000)  # 1000ms更新一次
+        self.update_timer.start(int(self.get_interval()) * 1000)  # 1000ms更新一次
         thread = threading.Thread(target=self.updateData())
         thread.start()
 
@@ -145,7 +175,7 @@ class Stats:
         self.old_pid = self.y[-1]
         self.i += 1
         self.x.append(self.i)
-        self.y.append(float(self.pid_now()))
+        self.y.append(int(self.pid_now()[0]))
 
         # 更新绘图
         self.ui.historyPlot.clear()
@@ -156,9 +186,16 @@ class Stats:
         self.ui.Y_line.setText(str(self.y[-1]))
         self.ui.time_line.setText('')
         self.ui.time_line.setText(str(datetime.datetime.now().strftime("%H:%M:%S")))
+        # 进程数
+        self.ui.pid_count.setText(str(len(self.pid_now()[2])))
         self.last_pid = self.y[-1]
         thread = threading.Thread(target=self.reset_process, args=(self.last_pid, self.old_pid))
         thread.start()
+
+    # def process_window(self):
+
+    #     # 进程结果
+    #     self.ui.proce_result.insertPlainText(str(self.pid_now()[1]))
 
     # 进程重置节点记录
     def reset_process(self, last_pid, old_pid):
@@ -176,26 +213,36 @@ class Stats:
         result = os.popen(cmd)
         self.print_text(str(result.read()))
 
-    def install_apk(self):
-        self.wrong_tip(self.get_apkpath())
-        cmd = f'adb install {self.get_apkpath()}'
-        result = os.popen(cmd)
-        self.print_text(str(result.read()))
-        self.ui.packname_input.setText(str(GetInfo().get_appPackagename(self.apppath)))
-    def debug_install_t(self):
-        self.wrong_tip(self.get_apkpath())
-        thread = threading.Thread(target=self.debug_install)
+    def install_apk_t(self):
+        def install_apk():
+            self.wrong_tip(self.get_apkpath())
+            cmd = f'adb install {self.get_apkpath()}'
+            result = os.popen(cmd)
+            self.print_text(str(result.read()))
+            self.ui.packname_input.setText(str(GetInfo().get_appPackagename(self.apppath)))
+
+        thread = threading.Thread(target=install_apk)
         thread.start()
 
-    def debug_install(self):
-        debugpath = r'D:\to'
-        self.apppath = self.ui.apk_path.text()
-        apppath = str(self.apppath).replace('"', '')
-        get = GetInfo()
-        device = u2.connect_usb(get.get_deviceids())
-        acti = activiting(device)
-        self.print_text(acti.install_and_debug(apppath, debugpath))
-        self.ui.packname_input.setText(str(GetInfo().get_appPackagename(self.apppath)))
+    def debug_install_t(self):
+        try:
+            self.wrong_tip(self.get_apkpath())
+
+            def debug_install():
+                debugpath = r'D:\to'
+                self.apppath = self.ui.apk_path.text()
+                apppath = str(self.apppath).replace('"', '')
+                get = GetInfo()
+                device = u2.connect_usb(get.get_deviceids())
+                acti = activiting(device)
+                self.print_text(acti.install_and_debug(apppath, debugpath))
+                self.ui.packname_input.setText(str(GetInfo().get_appPackagename(self.apppath)))
+
+            thread = threading.Thread(target=debug_install)
+            thread.start()
+        except:
+            self.ui.result_label.insertPlainText(
+                f'{datetime.datetime.now().strftime("%Y-%m-%d_%H:%M:%S")}\n==============logs=================\n"debug安装失败,请重试"\n')
 
 
 if __name__ == '__main__':
