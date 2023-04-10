@@ -1,17 +1,24 @@
 import threading
-import time
 import uiautomator2 as u2
-from PySide2.QtWidgets import QApplication, QDialog, QVBoxLayout, QPushButton, QMessageBox
+from PySide2.QtWidgets import QApplication, QMessageBox, QTextBrowser
 import pyqtgraph as pg
 from PySide2.QtUiTools import QUiLoader
 import sys
 import subprocess
 import os, re, requests
 from pyqtgraph.Qt import QtCore
-from PySide2.QtWidgets import QLineEdit
 import datetime
 from aotudriver.get_info import GetInfo
 from Eingpan import activiting
+from PySide2.QtCore import Signal, QObject
+from PySide2.QtGui import QIcon
+
+
+class MySignal(QObject):
+    signal = Signal(str)
+
+
+mysi = MySignal()
 
 
 class Stats:
@@ -49,20 +56,26 @@ class Stats:
         self.ui.start_time.clicked.connect(self.count_down_t)
 
     def count_down_t(self):
-        self.time = self.ui.down_num.value()*60
-        self.ui.proce_result.insertPlainText(f'{datetime.datetime.now().strftime("%Y-%m-%d_%H:%M:%S")}\n开始倒计时{self.time}秒\n')
+        self.z = 5
+        self.time = self.ui.down_num.value() * 60
+        self.ui.proce_result.insertPlainText(
+            f'{datetime.datetime.now().strftime("%Y-%m-%d_%H:%M:%S")}\n开始倒计时{self.time}秒\n')
         self.clock_timer = QtCore.QTimer()
         self.clock_timer.timeout.connect(self.count_down)
         self.clock_timer.start(5000)  # 1000ms更新一次
+
     def stop_timer2(self):
         self.clock_timer.stop()
-    def count_down(self,):
-        self.z += 5
 
+    def count_down(self):
         if int(self.z) < int(self.time):
-            self.ui.proce_result.insertPlainText(f'还剩{self.one}\n')
+            self.ui.proce_result.insertPlainText(f'还剩{int(self.time - self.z)}秒\n')
+            self.z += 5
         else:
             self.stop_timer2()
+            self.ui.proce_result.insertPlainText(
+                f'{datetime.datetime.now().strftime("%Y-%m-%d_%H:%M:%S")}\n倒计时{self.time}时间到\n')
+
     def get_devices(self):
         cmd = 'adb shell getprop ro.product.model'
         device = os.popen(cmd).read()
@@ -194,7 +207,6 @@ class Stats:
         self.y.append(int(self.pid_now()[0]))
 
         # 更新绘图
-        self.ui.historyPlot.clear()
         self.ui.historyPlot.plot(self.x, self.y)
         self.ui.X_line.setText('')
         self.ui.X_line.setText(str(self.x[-1]))
@@ -263,6 +275,8 @@ class Stats:
 
 if __name__ == '__main__':
     app = QApplication([])
+    app.setWindowIcon(QIcon('/cfg/icon.png'))
     stats = Stats()
     stats.ui.show()
     sys.exit(app.exec_())
+
