@@ -16,3 +16,4 @@ class activiting:
     def install_and_debug(self, apppath1, debugpath1):
         self.base.app_install(apppath1)
         self.base.Sending_files_from_your_phone(debugpath1, self.get_fullphonepath(apppath1))
+        return 'debug安装完成'

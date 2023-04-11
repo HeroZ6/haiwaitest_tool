@@ -1,4 +1,7 @@
 import threading
+from subprocess import Popen
+
+import qtmodern.styles
 import uiautomator2 as u2
 from PySide2.QtWidgets import QApplication, QMessageBox, QTextBrowser
 import pyqtgraph as pg
@@ -10,21 +13,25 @@ from pyqtgraph.Qt import QtCore
 import datetime
 from aotudriver.get_info import GetInfo
 from Eingpan import activiting
-from PySide2.QtCore import Signal, QObject
+from PySide2.QtCore import Signal, QObject, QThread
 from PySide2.QtGui import QIcon
 import ctypes
+from PySide2 import QtCore, QtWidgets, QtUiTools
 
 
-class MySignal(QObject):
-    signal = Signal(str)
+class MySignals(QObject):
+    # 定义一种信号，两个参数 类型分别是： QTextBrowser 和 字符串
+    signal = Signal(object)
 
 
-mysi = MySignal()
+# 实例化
+mysi = MySignals()
 
 
 class Stats:
 
     def __init__(self):
+
         self.time = 0
         self.one = 0
         self.test_time = 0
@@ -42,7 +49,14 @@ class Stats:
         self.update_timer = None
         loader = QUiLoader()
         loader.registerCustomWidget(pg.PlotWidget)
-        self.ui = QUiLoader().load(r'ui\main.ui')
+        self.ui = QUiLoader().load(r'D:\protect\haiwaitest_tool\ui\main.ui')
+        self.ui.setWindowTitle('haiwai_tools')
+        # 初始化按钮状态
+        self.ui.stop_button.setEnabled(False)
+        self.ui.process_start.setEnabled(True)
+        self.ui.start_time.setEnabled(True)
+        self.ui.reset.setEnabled(False)
+        # 按钮连接
         self.ui.env_button.clicked.connect(self.get_device_info)
         self.ui.clear_button.clicked.connect(self.clear_result)
         self.ui.process_start.clicked.connect(self.start_plot)
@@ -55,27 +69,34 @@ class Stats:
         self.ui.auto_getpath.clicked.connect(self.get_path)
         self.ui.refresh.clicked.connect(self.get_devices)
         self.ui.start_time.clicked.connect(self.count_down_t)
+        self.ui.reset.clicked.connect(self.time_reset)
+        mysi.signal.connect(self.start_plot)
 
     def count_down_t(self):
-        self.z = 5
-        self.time = self.ui.down_num.value() * 60
+        self.ui.start_time.setEnabled(False)
+        self.ui.reset.setEnabled(True)
+        self.z = 1
+        self.time = self.ui.down_num.value()
         self.ui.proce_result.insertPlainText(
             f'{datetime.datetime.now().strftime("%Y-%m-%d_%H:%M:%S")}\n开始倒计时{self.time}秒\n')
         self.clock_timer = QtCore.QTimer()
         self.clock_timer.timeout.connect(self.count_down)
-        self.clock_timer.start(5000)  # 1000ms更新一次
+        self.clock_timer.start(1000)  # 5000ms更新一次
 
     def stop_timer2(self):
         self.clock_timer.stop()
 
     def count_down(self):
         if int(self.z) < int(self.time):
-            self.ui.proce_result.insertPlainText(f'还剩{int(self.time - self.z)}秒\n')
-            self.z += 5
+            self.ui.down_num.setValue(int(f'{int(self.time - self.z)}'))
+            self.z += 1
         else:
             self.stop_timer2()
+            self.ui.down_num.setValue(0)
             self.ui.proce_result.insertPlainText(
-                f'{datetime.datetime.now().strftime("%Y-%m-%d_%H:%M:%S")}\n倒计时{self.time}时间到\n')
+                f'{datetime.datetime.now().strftime("%Y-%m-%d_%H:%M:%S")}\n倒计时{self.time}秒结束\n')
+            self.ui.start_time.setEnabled(True)
+            self.ui.reset.setEnabled(False)
 
     def get_devices(self):
         cmd = 'adb shell getprop ro.product.model'
@@ -113,6 +134,10 @@ class Stats:
     def print_text(self, function):
         content = f'{datetime.datetime.now().strftime("%Y-%m-%d_%H:%M:%S")}\n==============logs=================\n{function}\n'
         self.ui.result_label.insertPlainText(content)
+
+    def print_text2(self, function):
+        content = f'{datetime.datetime.now().strftime("%Y-%m-%d_%H:%M:%S")}\n==============logs=================\n{function}\n'
+        self.ui.proce_result.insertPlainText(content)
 
     # 获取当前进程pid
     def pid_now(self):
@@ -163,7 +188,13 @@ class Stats:
         self.ui.Y_line.clear()
         self.ui.time_line.clear()
         self.ui.pid_count.clear()
+
+    def time_reset(self):
+        self.stop_timer2()
         self.ui.proce_result.clear()
+        self.ui.down_num.setValue(1)
+        self.ui.start_time.setEnabled(True)
+        self.ui.reset.setEnabled(False)
 
     # 获取输入的包名
     def get_packname(self):
@@ -178,12 +209,14 @@ class Stats:
     # 停止进程
     def stop_timer(self):
         self.update_timer.stop()  # 停止 QTimer
+        self.ui.process_start.setEnabled(True)
+        self.ui.stop_button.setEnabled(False)
 
     def force_stop(self):
         self.force_stop_num += 1
         cmd = f'adb shell am force-stop {self.get_packname()}'
         os.popen(cmd)
-        self.print_text(f'手动强停{self.force_stop_num}次')
+        self.print_text2(f'手动强停{self.force_stop_num}次')
 
     def get_interval(self):
         interval = self.ui.interval.value()
@@ -191,6 +224,8 @@ class Stats:
 
     # 实时更新图
     def start_plot(self):
+        self.ui.stop_button.setEnabled(True)
+        self.ui.process_start.setEnabled(False)
         self.wrong_tip(self.get_packname())
         self.i = 0
         self.x = [0]
@@ -198,43 +233,36 @@ class Stats:
         self.update_timer = QtCore.QTimer()
         self.update_timer.timeout.connect(self.updateData)
         self.update_timer.start(int(self.get_interval()) * 1000)  # 1000ms更新一次
-        thread = threading.Thread(target=self.updateData())
-        thread.start()
 
     def updateData(self):
         self.old_pid = self.y[-1]
         self.i += 1
         self.x.append(self.i)
         self.y.append(int(self.pid_now()[0]))
-
-        # 更新绘图
+        self.last_pid = self.y[-1]
         self.ui.historyPlot.plot(self.x, self.y)
-        self.ui.X_line.setText('')
         self.ui.X_line.setText(str(self.x[-1]))
-        self.ui.Y_line.setText('')
         self.ui.Y_line.setText(str(self.y[-1]))
-        self.ui.time_line.setText('')
         self.ui.time_line.setText(str(datetime.datetime.now().strftime("%H:%M:%S")))
         # 进程数
         self.ui.pid_count.setText(str(len(self.pid_now()[2])))
-        self.last_pid = self.y[-1]
         thread = threading.Thread(target=self.reset_process, args=(self.last_pid, self.old_pid))
         thread.start()
+
+    # 进程重置节点记录
+    def reset_process(self, last_pid, old_pid):
+        if int(self.old_pid) == 0:
+            pass
+        elif str(self.last_pid) != str(self.old_pid) and int(self.last_pid) != 0:
+            self.reset_process_num += 1
+            self.print_text2(f'进程重启{self.reset_process_num}次\n')
+        else:
+            pass
 
     # def process_window(self):
 
     #     # 进程结果
     #     self.ui.proce_result.insertPlainText(str(self.pid_now()[1]))
-
-    # 进程重置节点记录
-    def reset_process(self, last_pid, old_pid):
-        if int(old_pid) == 0:
-            pass
-        elif str(last_pid) != str(old_pid) and int(last_pid) != 0:
-            self.reset_process_num += 1
-            self.print_text(f'进程重启{self.reset_process_num}次\n')
-        else:
-            pass
 
     def uninstall(self):
         self.wrong_tip(self.get_packname())
@@ -279,6 +307,6 @@ if __name__ == '__main__':
     app.setWindowIcon(QIcon(r'cfg\icon.ico'))
     ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(r"cfg\icon.png")
     stats = Stats()
+    qtmodern.styles.dark(app)
     stats.ui.show()
     sys.exit(app.exec_())
-
