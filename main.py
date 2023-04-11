@@ -208,9 +208,11 @@ class Stats:
 
     # 停止进程
     def stop_timer(self):
+
         self.update_timer.stop()  # 停止 QTimer
         self.ui.process_start.setEnabled(True)
         self.ui.stop_button.setEnabled(False)
+        self.ui.historyPlot.setMouseEnabled(x=True, y=True)  # 鼠标xy都不能划动
 
     def force_stop(self):
         self.force_stop_num += 1
@@ -224,8 +226,15 @@ class Stats:
 
     # 实时更新图
     def start_plot(self):
+        self.ui.X_line.clear()
+        self.ui.Y_line.clear()
+        self.ui.time_line.clear()
+        self.ui.pid_count.clear()
+        self.ui.historyPlot.clear()
         self.ui.stop_button.setEnabled(True)
         self.ui.process_start.setEnabled(False)
+        self.ui.historyPlot.setMouseEnabled(x=False, y=False)  # 鼠标xy都不能划动
+
         self.wrong_tip(self.get_packname())
         self.i = 0
         self.x = [0]
@@ -299,7 +308,7 @@ class Stats:
             thread.start()
         except:
             self.ui.result_label.insertPlainText(
-                f'{datetime.datetime.now().strftime("%Y-%m-%d_%H:%M:%S")}\n==============logs=================\n"debug安装失败,请重试"\n')
+                f'{datetime.datetime.now().strftime("%Y-%m-%d_%H:%M:%S")}\n==============logs=================\ndebug安装失败,请重试或检查路径是否正确\n')
 
 
 if __name__ == '__main__':
