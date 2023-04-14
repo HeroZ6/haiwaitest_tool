@@ -1,6 +1,7 @@
+import json
 import threading
 from subprocess import Popen
-
+from cfg.cfg import endecode_url
 import qtmodern.styles
 import uiautomator2 as u2
 from PySide2.QtWidgets import QApplication, QMessageBox, QTextBrowser
@@ -70,7 +71,14 @@ class Stats:
         self.ui.refresh.clicked.connect(self.get_devices)
         self.ui.start_time.clicked.connect(self.count_down_t)
         self.ui.reset.clicked.connect(self.time_reset)
-        mysi.signal.connect(self.start_plot)
+        self.ui.encode_bt.clicked.connect(self.endecode)
+    def endecode(self):
+        content = self.ui.decode_msg.toPlainText()
+        code = json.loads(content)['data']
+        url = endecode_url + code
+        res = requests.get(url)
+        self.ui.input_msg.insertPlainText(str(res.json()))
+
 
     def count_down_t(self):
         self.ui.start_time.setEnabled(False)
@@ -247,7 +255,7 @@ class Stats:
         self.old_pid = self.y[-1]
         self.i += 1
         self.x.append(self.i)
-        self.y.append(int(self.pid_now()[0]))
+        self.y.append(float(self.pid_now()[0]))
         self.last_pid = self.y[-1]
         self.ui.historyPlot.plot(self.x, self.y)
         self.ui.X_line.setText(str(self.x[-1]))

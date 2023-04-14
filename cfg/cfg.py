@@ -9,3 +9,5 @@ ofiical_product = {
 }
 
 ofiical_model = ['MI 8', 'MI 9se', '红米 5 Plus', '三星 galaxy A04e', 'redmi 10 2022', 'MI 5', 'V2111']
+
+endecode_url = 'http://192.168.7.35:6408/step/decode/v5?code='
