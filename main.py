@@ -91,12 +91,7 @@ class Stats:
         self.ui.encode_bt.clicked.connect(self.endecode)
         mysi.signal.connect(self.plot)
 
-    def endecode(self):
-        content = self.ui.decode_msg.toPlainText()
-        code = json.loads(content)['data']
-        url = endecode_url + code
-        res = requests.get(url)
-        self.ui.input_msg.insertPlainText(str(res.json()))
+    ##=============================================================tab1=============================================================##
 
     def count_down_t(self):
         self.ui.start_time.setEnabled(False)
@@ -356,6 +351,15 @@ class Stats:
 
         stats2.ui2.show()
         app.exec_()
+
+    ##=============================================================tab2=======================================##
+
+    def endecode(self):
+        content = self.ui.decode_msg.toPlainText()
+        code = json.loads(content)['data']
+        url = endecode_url + code
+        res = requests.get(url)
+        self.ui.input_msg.insertPlainText(str(res.json()))
 
 
 class Stats2:
