@@ -1,6 +1,8 @@
 import json
 import threading
 from subprocess import Popen
+
+import tools
 from cfg.cfg import endecode_url
 import qtmodern.styles
 import uiautomator2 as u2
@@ -18,11 +20,12 @@ from PySide2.QtCore import Signal, QObject, QThread
 from PySide2.QtGui import QIcon
 import ctypes
 from PySide2 import QtCore, QtWidgets, QtUiTools
+from tools import get_packname2
 
 
 class MySignals(QObject):
     # 定义一种信号，两个参数 类型分别是： QTextBrowser 和 字符串
-    signal = Signal(object)
+    signal = Signal(str)
 
 
 # 实例化
@@ -58,27 +61,42 @@ class Stats:
         self.ui.start_time.setEnabled(True)
         self.ui.reset.setEnabled(False)
         # 按钮连接
+        # 环境检测
         self.ui.env_button.clicked.connect(self.get_device_info)
+        # 清除上结果框
         self.ui.clear_button.clicked.connect(self.clear_result)
+        # 进程监控绘图
         self.ui.process_start.clicked.connect(self.start_plot)
+        # 清除绘图数据
         self.ui.process_clear.clicked.connect(self.clear_process)
+        # 停止绘图进程
         self.ui.stop_button.clicked.connect(self.stop_timer)
+        # 强停app
         self.ui.force_stop.clicked.connect(self.force_stop)
+        # 卸载app
         self.ui.uninstall_bt.clicked.connect(self.uninstall)
+        # 直接安装
         self.ui.common_install.clicked.connect(self.install_apk_t)
+        # debug安装
         self.ui.debug_install.clicked.connect(self.debug_install_t)
+        # 获取路径
         self.ui.auto_getpath.clicked.connect(self.get_path)
+        # 获取设备
         self.ui.refresh.clicked.connect(self.get_devices)
+        # 倒计时
         self.ui.start_time.clicked.connect(self.count_down_t)
+        # 时间重置
         self.ui.reset.clicked.connect(self.time_reset)
+        # 解码
         self.ui.encode_bt.clicked.connect(self.endecode)
+        mysi.signal.connect(self.plot)
+
     def endecode(self):
         content = self.ui.decode_msg.toPlainText()
         code = json.loads(content)['data']
         url = endecode_url + code
         res = requests.get(url)
         self.ui.input_msg.insertPlainText(str(res.json()))
-
 
     def count_down_t(self):
         self.ui.start_time.setEnabled(False)
@@ -116,18 +134,18 @@ class Stats:
 
     # 截取路径
     def get_path(self):
-        try:
-            content = str(self.ui.result_label.toPlainText())
-            p = re.compile('(?<=file:///).+')
-            fpath = p.findall(content)
-            self.ui.apk_path.setText(fpath[0])
-            self.ui.result_label.clear()
-            p1 = re.compile('_(.*?)_')
-            packname = p1.findall(content)[0].replace('_', '')
-            self.ui.packname_input.setText(str(packname))
-
-        except:
-            self.ui.packname_input.setText('非规范文件名,安装后获取包名')
+        # try:
+        content = str(self.ui.result_label.toPlainText())
+        p = re.compile('(?<=file:///).+')
+        self.fpath = p.findall(content)
+        self.ui.apk_path.setText(self.fpath[0])
+        self.ui.result_label.clear()
+        p1 = re.compile('_(.*?)_')
+        packname = p1.findall(content)[0].replace('_', '')
+        self.ui.packname_input.setText(str(packname))
+        # self.ui.packname_input.setText(tools.get_packname2(self.fpath))
+        # except:
+        self.ui.packname_input.setText('非规范文件名,安装后获取包名')
 
     # 错误弹窗
     def wrong_tip(self, path):
@@ -136,6 +154,8 @@ class Stats:
                 self.ui,
                 '错误',
                 '路径不能为空！')
+            self.ui.stop_button.setEnabled(False)
+            self.ui.process_start.setEnabled(True)
             self.stop_timer()
             return
 
@@ -216,7 +236,7 @@ class Stats:
 
     # 停止进程
     def stop_timer(self):
-
+        self.clear_timer.stop()
         self.update_timer.stop()  # 停止 QTimer
         self.ui.process_start.setEnabled(True)
         self.ui.stop_button.setEnabled(False)
@@ -234,6 +254,7 @@ class Stats:
 
     # 实时更新图
     def start_plot(self):
+        # self.open_mainwindow2()
         self.ui.X_line.clear()
         self.ui.Y_line.clear()
         self.ui.time_line.clear()
@@ -242,7 +263,7 @@ class Stats:
         self.ui.stop_button.setEnabled(True)
         self.ui.process_start.setEnabled(False)
         self.ui.historyPlot.setMouseEnabled(x=False, y=False)  # 鼠标xy都不能划动
-
+        self.l = 30
         self.wrong_tip(self.get_packname())
         self.i = 0
         self.x = [0]
@@ -250,6 +271,13 @@ class Stats:
         self.update_timer = QtCore.QTimer()
         self.update_timer.timeout.connect(self.updateData)
         self.update_timer.start(int(self.get_interval()) * 1000)  # 1000ms更新一次
+        self.clear_timer = QtCore.QTimer()
+        self.clear_timer.timeout.connect(self.clear_plot)
+        self.clear_timer.start(30000)
+
+    def clear_plot(self):
+        self.ui.historyPlot.clear()
+        print(f'{datetime.datetime.now().strftime("%H:%M:%S")}\n清除一次\n')
 
     def updateData(self):
         self.old_pid = self.y[-1]
@@ -257,14 +285,24 @@ class Stats:
         self.x.append(self.i)
         self.y.append(float(self.pid_now()[0]))
         self.last_pid = self.y[-1]
-        self.ui.historyPlot.plot(self.x, self.y)
         self.ui.X_line.setText(str(self.x[-1]))
         self.ui.Y_line.setText(str(self.y[-1]))
+        mysi.signal.emit(self.plot())
         self.ui.time_line.setText(str(datetime.datetime.now().strftime("%H:%M:%S")))
         # 进程数
         self.ui.pid_count.setText(str(len(self.pid_now()[2])))
+        if int(self.l) <= int(30):
+            self.ui.clear_time.setText(str(f'{self.l}'))
+            self.l -= 1
+            if int(self.l) == 0:
+                self.l = 30
+
         thread = threading.Thread(target=self.reset_process, args=(self.last_pid, self.old_pid))
         thread.start()
+
+    def plot(self):
+
+        self.ui.historyPlot.plot(self.x, self.y)
 
     # 进程重置节点记录
     def reset_process(self, last_pid, old_pid):
@@ -275,11 +313,6 @@ class Stats:
             self.print_text2(f'进程重启{self.reset_process_num}次\n')
         else:
             pass
-
-    # def process_window(self):
-
-    #     # 进程结果
-    #     self.ui.proce_result.insertPlainText(str(self.pid_now()[1]))
 
     def uninstall(self):
         self.wrong_tip(self.get_packname())
@@ -294,6 +327,7 @@ class Stats:
             result = os.popen(cmd)
             self.print_text(str(result.read()))
             self.ui.packname_input.setText(str(GetInfo().get_appPackagename(self.apppath)))
+            # self.ui.packname_input.setText(tools.get_packname2())
 
         thread = threading.Thread(target=install_apk)
         thread.start()
@@ -318,12 +352,26 @@ class Stats:
             self.ui.result_label.insertPlainText(
                 f'{datetime.datetime.now().strftime("%Y-%m-%d_%H:%M:%S")}\n==============logs=================\ndebug安装失败,请重试或检查路径是否正确\n')
 
+    def open_mainwindow2(self):
+
+        stats2.ui2.show()
+        app.exec_()
+
+
+class Stats2:
+    def __init__(self):
+        loader = QUiLoader()
+        loader.registerCustomWidget(pg.PlotWidget)
+        self.ui2 = QUiLoader().load(r'D:\protect\haiwaitest_tool\ui\main2.ui')
+        self.ui2.setWindowTitle('process')
+
 
 if __name__ == '__main__':
     app = QApplication([])
     app.setWindowIcon(QIcon(r'cfg\icon.ico'))
     ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(r"cfg\icon.png")
     stats = Stats()
+    stats2 = Stats2()
     qtmodern.styles.dark(app)
     stats.ui.show()
     sys.exit(app.exec_())
