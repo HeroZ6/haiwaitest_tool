@@ -23,19 +23,87 @@ from PySide2 import QtCore, QtWidgets, QtUiTools
 from tools import get_packname2
 
 
-class MySignals(QObject):
+class MySignals(QThread):
     # 定义一种信号，两个参数 类型分别是： QTextBrowser 和 字符串
-    signal = Signal(str)
+    update_signal = Signal(list, list)
+    line_signal = Signal(list, list, str, str)
+    time_signal = Signal(str)
+    reset_process = Signal(str)
+
+    def __init__(self):
+        super().__init__()
+        self.i = 0
+        self.y = [0]
+        self.x = [0]
+        self.reset_process_num = 0
+
+    def run(self):
+        self.i = 0
+        self.y = [0]
+        self.x = [0]
+        def pid_now():
+            packagename = stats.get_packname()
+            pid_cmd = f'adb shell ps|findstr {packagename}'
+            pid_content = os.popen(pid_cmd).read()
+            p = re.compile(packagename)
+            num = len(p.findall(pid_content))
+
+            if str(packagename) in pid_content:
+                p = re.compile(' (\d.*?) ')
+                pid = p.findall(pid_content)[0]
+            else:
+                pid = 0
+            return pid, pid_content, num
+
+        while True:
+            self.i += 1
+            self.old_pid = self.y[-1]
+            self.x.append(self.i)
+            self.y.append(int(pid_now()[0]))
+            self.last_pid = self.y[-1]
+            self.update_signal.emit(self.x, self.y)
+            self.line_signal.emit(self.x, self.y, str(datetime.datetime.now().strftime("%H:%M:%S")), str(pid_now()[2]))
+            if int(self.old_pid) == 0:
+                pass
+            elif str(self.last_pid) != str(self.old_pid) and int(self.last_pid) != 0:
+                self.reset_process_num += 1
+                self.reset_process.emit(f'进程重启{self.reset_process_num}次\n')
+            else:
+                pass
+
+            self.msleep(int(stats.get_interval()) * 1000)
 
 
 # 实例化
 mysi = MySignals()
 
 
+# 清理数据线程
+class clearSignals(QThread):
+    clear_signals = Signal(str)
+    device_refresh = Signal(int)
+    def __init__(self):
+        super().__init__()
+
+
+    def run(self):
+        self.l = 30
+        while True:
+            if int(self.l) <= int(30):
+                self.clear_signals.emit(str(f'{self.l}'))
+                self.l -= 1
+                if int(self.l) == 0:
+                    self.l = 30
+                    self.device_refresh.emit(1)
+            self.msleep(1000)
+
+
+clearqt = clearSignals()
+
+
 class Stats:
 
     def __init__(self):
-
         self.time = 0
         self.one = 0
         self.test_time = 0
@@ -46,13 +114,9 @@ class Stats:
         self.tips_windows = QMessageBox()
         self.paths = ''
         self.force_stop_num = 0
-        self.reset_process_num = 0
-        self.i = None
-        self.x = None
-        self.y = None
-        self.update_timer = None
         loader = QUiLoader()
         loader.registerCustomWidget(pg.PlotWidget)
+
         self.ui = QUiLoader().load(r'D:\protect\haiwaitest_tool\ui\main.ui')
         self.ui.setWindowTitle('haiwai_tools')
         # 初始化按钮状态
@@ -89,7 +153,6 @@ class Stats:
         self.ui.reset.clicked.connect(self.time_reset)
         # 解码
         self.ui.encode_bt.clicked.connect(self.endecode)
-        mysi.signal.connect(self.plot)
 
     ##=============================================================tab1=============================================================##
 
@@ -170,7 +233,7 @@ class Stats:
         num = p.findall(pid_content)
 
         if str(self.get_packname()) in pid_content:
-            p = re.compile('      (\d.*?)   ')
+            p = re.compile(' (\d.*?) ')
             pid = p.findall(pid_content)[0]
         else:
             pid = 0
@@ -203,14 +266,15 @@ class Stats:
     # 结果栏
     def clear_result(self):
         self.ui.result_label.clear()
+        self.ui.proce_result.clear()
 
     # 进程栏
     def clear_process(self):
         self.ui.historyPlot.clear()
-        self.ui.X_line.clear()
-        self.ui.Y_line.clear()
-        self.ui.time_line.clear()
-        self.ui.pid_count.clear()
+        self.ui.X_value1.clear()
+        self.ui.Y_value1.clear()
+        self.ui.time_now.clear()
+        self.ui.pid_c.clear()
 
     def time_reset(self):
         self.stop_timer2()
@@ -231,8 +295,8 @@ class Stats:
 
     # 停止进程
     def stop_timer(self):
-        self.clear_timer.stop()
-        self.update_timer.stop()  # 停止 QTimer
+        self.clear_thread.terminate()
+        self.plot_thread.terminate()  # 停止 QTimer
         self.ui.process_start.setEnabled(True)
         self.ui.stop_button.setEnabled(False)
         self.ui.historyPlot.setMouseEnabled(x=True, y=True)  # 鼠标xy都不能划动
@@ -250,64 +314,53 @@ class Stats:
     # 实时更新图
     def start_plot(self):
         # self.open_mainwindow2()
-        self.ui.X_line.clear()
-        self.ui.Y_line.clear()
-        self.ui.time_line.clear()
-        self.ui.pid_count.clear()
+        self.ui.X_value1.clear()
+        self.ui.Y_value1.clear()
+        self.ui.time_now.clear()
+        self.ui.pid_c.clear()
         self.ui.historyPlot.clear()
         self.ui.stop_button.setEnabled(True)
         self.ui.process_start.setEnabled(False)
         self.ui.historyPlot.setMouseEnabled(x=False, y=False)  # 鼠标xy都不能划动
         self.l = 30
         self.wrong_tip(self.get_packname())
-        self.i = 0
-        self.x = [0]
-        self.y = [0]
-        self.update_timer = QtCore.QTimer()
-        self.update_timer.timeout.connect(self.updateData)
-        self.update_timer.start(int(self.get_interval()) * 1000)  # 1000ms更新一次
-        self.clear_timer = QtCore.QTimer()
-        self.clear_timer.timeout.connect(self.clear_plot)
-        self.clear_timer.start(30000)
+        # self.i = 0
+        # self.x = [0]
+        # self.y = [0]
+
+        self.plot_thread = mysi
+        self.clear_thread = clearqt
+        self.plot_thread.update_signal.connect(self.plot)
+        self.plot_thread.line_signal.connect(self.line)
+        self.plot_thread.reset_process.connect(self.reset_report)
+        self.clear_thread.clear_signals.connect(self.clear_time)
+        self.clear_thread.device_refresh.connect(self.get_devices)
+        self.plot_thread.start()  # 1000ms更新一次
+        self.clear_thread.start()
 
     def clear_plot(self):
         self.ui.historyPlot.clear()
         print(f'{datetime.datetime.now().strftime("%H:%M:%S")}\n清除一次\n')
 
-    def updateData(self):
-        self.old_pid = self.y[-1]
-        self.i += 1
-        self.x.append(self.i)
-        self.y.append(float(self.pid_now()[0]))
-        self.last_pid = self.y[-1]
-        self.ui.X_line.setText(str(self.x[-1]))
-        self.ui.Y_line.setText(str(self.y[-1]))
-        mysi.signal.emit(self.plot())
-        self.ui.time_line.setText(str(datetime.datetime.now().strftime("%H:%M:%S")))
-        # 进程数
-        self.ui.pid_count.setText(str(len(self.pid_now()[2])))
-        if int(self.l) <= int(30):
-            self.ui.clear_time.setText(str(f'{self.l}'))
-            self.l -= 1
-            if int(self.l) == 0:
-                self.l = 30
+    # ====================================================主线程更新ui-start===============================================================##
 
-        thread = threading.Thread(target=self.reset_process, args=(self.last_pid, self.old_pid))
-        thread.start()
+    def clear_time(self, str1):
+        self.ui.clear_time.setText(str1)
 
-    def plot(self):
+    def reset_report(self, str):
+        self.print_text2(str)
 
-        self.ui.historyPlot.plot(self.x, self.y)
+    def line(self, list1, list2, str3, str4):
+        self.ui.X_value1.setText(str(list1[-1]))
+        self.ui.Y_value1.setText(str(list2[-1]))
+        self.ui.time_now.setText(str3)
+        self.ui.pid_c.setText(str4)
 
-    # 进程重置节点记录
-    def reset_process(self, last_pid, old_pid):
-        if int(self.old_pid) == 0:
-            pass
-        elif str(self.last_pid) != str(self.old_pid) and int(self.last_pid) != 0:
-            self.reset_process_num += 1
-            self.print_text2(f'进程重启{self.reset_process_num}次\n')
-        else:
-            pass
+    def plot(self, list1, list2):
+        self.curve = self.ui.historyPlot.plot()
+        self.curve.setData(list1, list2)
+
+    # ====================================================主线程更新ui-end===============================================================##
 
     def uninstall(self):
         self.wrong_tip(self.get_packname())
@@ -355,11 +408,13 @@ class Stats:
     ##=============================================================tab2=======================================##
 
     def endecode(self):
+        self.ui.input_msg.clear()
         content = self.ui.decode_msg.toPlainText()
-        code = json.loads(content)['data']
-        url = endecode_url + code
+        res = requests.get(content)
+        vlaue = res.json()['data']
+        url = endecode_url + vlaue
         res = requests.get(url)
-        self.ui.input_msg.insertPlainText(str(res.json()))
+        self.ui.input_msg.insertPlainText(res.text)
 
 
 class Stats2:
