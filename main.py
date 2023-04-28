@@ -1,12 +1,12 @@
 import json
 import threading
 from subprocess import Popen
-
-import tools
+from tools import QEventHandler
+from tools import tool
 from cfg.cfg import endecode_url
 import qtmodern.styles
 import uiautomator2 as u2
-from PySide2.QtWidgets import QApplication, QMessageBox, QTextBrowser
+from PySide2.QtWidgets import QApplication, QMessageBox, QTextBrowser, QWidget
 import pyqtgraph as pg
 from PySide2.QtUiTools import QUiLoader
 import sys
@@ -20,7 +20,6 @@ from PySide2.QtCore import Signal, QObject, QThread
 from PySide2.QtGui import QIcon
 import ctypes
 from PySide2 import QtCore, QtWidgets, QtUiTools
-from tools import get_packname2
 
 
 class MySignals(QThread):
@@ -41,6 +40,7 @@ class MySignals(QThread):
         self.i = 0
         self.y = [0]
         self.x = [0]
+
         def pid_now():
             packagename = stats.get_packname()
             pid_cmd = f'adb shell ps|findstr {packagename}'
@@ -82,9 +82,9 @@ mysi = MySignals()
 class clearSignals(QThread):
     clear_signals = Signal(str)
     device_refresh = Signal(int)
+
     def __init__(self):
         super().__init__()
-
 
     def run(self):
         self.l = 30
@@ -99,6 +99,61 @@ class clearSignals(QThread):
 
 
 clearqt = clearSignals()
+
+
+class checkSignals(QThread):
+    check_signals = Signal(str)
+    key_query_signals = Signal(str, str, str)
+    aab_query_signals = Signal(str, str, str)
+    check_result_signls = Signal(str)
+
+    def __init__(self, param):
+        super().__init__()
+        self.param = param
+
+    def query_key(self):
+        key_path = check.chcek_ui.key_path.text()
+        pwd = check.chcek_ui.pwd.text()
+        try:
+            if key_path != None and pwd != None:
+                key_query = tool.get_keystoreSha(key_path, pwd)
+                self.key_query_signals.emit(key_query[0], key_query[1], key_query[2])
+        except IndexError:
+            self.key_query_signals.emit('请检查密码是否正确且不能为空！！', None, None)
+
+    def query_aab(self):
+        aab_path = check.chcek_ui.aab_path.text()
+        try:
+            if aab_path != None:
+                aab_query = tool.get_aabkeystoreSha(aab_path)
+                self.aab_query_signals.emit(aab_query[0], aab_query[1], aab_query[2])
+        except IndexError:
+            self.aab_query_signals.emit('请检查路径是否正确且不能为空！！', None, None)
+
+    def compare_sha(self):
+        try:
+            key_path = check.chcek_ui.key_path.text()
+            pwd = check.chcek_ui.pwd.text()
+            aab_path = check.chcek_ui.aab_path.text()
+            aab = tool.get_aabkeystoreSha(aab_path)
+
+            if aab[0] and aab[1] and aab[2] not in tool.get_keystoreSha(key_path, pwd):
+                self.check_result_signls.emit('匹配失败')
+            elif aab[0] and aab[1] and aab[2] in tool.get_keystoreSha(key_path, pwd):
+                self.check_result_signls.emit('匹配成功')
+        except IndexError:
+            self.check_result_signls.emit('数据获取不完整，无法匹配')
+
+    def run(self):
+        if int(self.param) == 0:
+            self.query_key()
+        elif int(self.param) == 1:
+            self.query_aab()
+        elif int(self.param) == 2:
+            self.compare_sha()
+
+
+# compare_sha(key_path, aab_path)
 
 
 class Stats:
@@ -117,7 +172,7 @@ class Stats:
         loader = QUiLoader()
         loader.registerCustomWidget(pg.PlotWidget)
 
-        self.ui = QUiLoader().load(r'D:\protect\haiwaitest_tool\ui\main.ui')
+        self.ui = QUiLoader().load(r'D:\protect\haiwaitest_v0.8\ui\main.ui')
         self.ui.setWindowTitle('haiwai_tools')
         # 初始化按钮状态
         self.ui.stop_button.setEnabled(False)
@@ -153,6 +208,9 @@ class Stats:
         self.ui.reset.clicked.connect(self.time_reset)
         # 解码
         self.ui.encode_bt.clicked.connect(self.endecode)
+        # 打开签名检验界面
+        self.ui.key_input.clicked.connect(self.open_check)
+        self.ui.apk_path.installEventFilter(QEventHandler(self.ui.apk_path))
 
     ##=============================================================tab1=============================================================##
 
@@ -375,7 +433,6 @@ class Stats:
             result = os.popen(cmd)
             self.print_text(str(result.read()))
             self.ui.packname_input.setText(str(GetInfo().get_appPackagename(self.apppath)))
-            # self.ui.packname_input.setText(tools.get_packname2())
 
         thread = threading.Thread(target=install_apk)
         thread.start()
@@ -400,10 +457,10 @@ class Stats:
             self.ui.result_label.insertPlainText(
                 f'{datetime.datetime.now().strftime("%Y-%m-%d_%H:%M:%S")}\n==============logs=================\ndebug安装失败,请重试或检查路径是否正确\n')
 
-    def open_mainwindow2(self):
-
-        stats2.ui2.show()
-        app.exec_()
+    # def open_mainwindow2(self):
+    #
+    #     stats2.ui2.show()
+    #     app.exec_()
 
     ##=============================================================tab2=======================================##
 
@@ -416,12 +473,103 @@ class Stats:
         res = requests.get(url)
         self.ui.input_msg.insertPlainText(res.text)
 
+    def open_check(self):
+        check.init()
+        check.chcek_ui.show()
+        app.exec_()
+
+
+class Check(QWidget):
+    def __init__(self):
+        super().__init__()
+        self.chcek_ui = QUiLoader().load(r'D:\protect\haiwaitest_v0.8\ui\checkui.ui')
+        self.chcek_ui.query_key.clicked.connect(self.start_query_0)
+        self.chcek_ui.query_aab.clicked.connect(self.start_query_1)
+        self.chcek_ui.compare.clicked.connect(self.start_query_2)
+        self.chcek_ui.key_path.installEventFilter(QEventHandler(self.chcek_ui.key_path))
+        self.chcek_ui.aab_path.installEventFilter(QEventHandler(self.chcek_ui.aab_path))
+        self.chcek_ui.clear_aab.clicked.connect(self.clear_query_1)
+        self.chcek_ui.clear_key.clicked.connect(self.clear_query_0)
+    def init(self):
+        self.chcek_ui.check_result.clear()
+        self.chcek_ui.key_sha1_re.clear()
+        self.chcek_ui.key_sha256_re.clear()
+        self.chcek_ui.key_md5_re.clear()
+        self.chcek_ui.check_result.clear()
+        self.chcek_ui.aab_sha1_re.clear()
+        self.chcek_ui.aab_sha256_re.clear()
+        self.chcek_ui.aab_md5_re.clear()
+        self.chcek_ui.check_result.clear()
+
+    def clear_query_0(self):
+        self.chcek_ui.check_result.clear()
+        self.chcek_ui.key_sha1_re.clear()
+        self.chcek_ui.key_sha256_re.clear()
+        self.chcek_ui.key_md5_re.clear()
+        self.check_thread.terminate()
+        self.chcek_ui.query_key.setEnabled(True)
+        self.chcek_ui.query_aab.setEnabled(True)
+
+    def clear_query_1(self):
+        self.chcek_ui.check_result.clear()
+        self.chcek_ui.aab_sha1_re.clear()
+        self.chcek_ui.aab_sha256_re.clear()
+        self.chcek_ui.aab_md5_re.clear()
+        self.check_thread.terminate()
+        self.chcek_ui.query_key.setEnabled(True)
+        self.chcek_ui.query_aab.setEnabled(True)
+
+    def start_query_0(self):
+        self.chcek_ui.compare.setEnabled(False)
+        self.chcek_ui.query_aab.setEnabled(False)
+        self.check_thread = checkSignals(0)
+        self.check_thread.start()
+        self.check_thread.key_query_signals.connect(self.key_check_result)
+
+    def start_query_1(self):
+        self.chcek_ui.compare.setEnabled(False)
+        self.chcek_ui.query_key.setEnabled(False)
+        self.check_thread = checkSignals(1)
+        self.check_thread.start()
+        self.check_thread.aab_query_signals.connect(self.aab_check_result)
+
+    def start_query_2(self):
+        self.chcek_ui.query_key.setEnabled(False)
+        self.chcek_ui.query_aab.setEnabled(False)
+        self.check_thread = checkSignals(2)
+        self.check_thread.start()
+        self.check_thread.check_result_signls.connect(self.check_result)
+
+    def key_check_result(self, str1, str2, str3):
+        self.chcek_ui.key_sha1_re.setText(str1)
+        self.chcek_ui.key_sha256_re.setText(str2)
+        self.chcek_ui.key_md5_re.setText(str3)
+        self.check_thread.terminate()
+        self.chcek_ui.compare.setEnabled(True)
+        self.chcek_ui.query_aab.setEnabled(True)
+
+
+    def aab_check_result(self, str1, str2, str3):
+        self.chcek_ui.aab_sha1_re.setText(str1)
+        self.chcek_ui.aab_sha256_re.setText(str2)
+        self.chcek_ui.aab_md5_re.setText(str3)
+        self.check_thread.terminate()
+        self.chcek_ui.compare.setEnabled(True)
+        self.chcek_ui.query_key.setEnabled(True)
+
+    def check_result(self, str1):
+        self.chcek_ui.check_result.setText(str1)
+        self.check_thread.terminate()
+        self.chcek_ui.query_key.setEnabled(True)
+        self.chcek_ui.query_aab.setEnabled(True)
+
+
 
 class Stats2:
     def __init__(self):
         loader = QUiLoader()
         loader.registerCustomWidget(pg.PlotWidget)
-        self.ui2 = QUiLoader().load(r'D:\protect\haiwaitest_tool\ui\main2.ui')
+        self.ui2 = QUiLoader().load(r'haiwaitest_tool_v0.8\ui\main2.ui')
         self.ui2.setWindowTitle('process')
 
 
@@ -429,8 +577,9 @@ if __name__ == '__main__':
     app = QApplication([])
     app.setWindowIcon(QIcon(r'cfg\icon.ico'))
     ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(r"cfg\icon.png")
+    check = Check()
     stats = Stats()
-    stats2 = Stats2()
+    # stats2 = Stats2()
     qtmodern.styles.dark(app)
     stats.ui.show()
     sys.exit(app.exec_())
