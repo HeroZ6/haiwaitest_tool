@@ -123,7 +123,6 @@ class GetInfo:
             sqlit_file_name.append(file_name.split('_'))
             new_sqlit_file_name = sqlit_file_name[indexv]
             new_sqlit_file_name.append(file_name)
-            # print('>?>>',new_sqlit_file_name)
             indexv += 1
 
         for index in range(len(Packagename_list)):
@@ -195,8 +194,6 @@ class GetInfo:
         if not match:
             raise Exception("can't get packageinfo")
         appPackage = match.group(1)
-        # # 还可以返回本版号
-        # versionName = match.group(3)
         return appPackage
 
 

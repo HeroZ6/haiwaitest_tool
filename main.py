@@ -1,12 +1,13 @@
 import json
 import threading
-from subprocess import Popen
-from tools import QEventHandler
+import time
+
+from PySide2.QtCore import QJsonDocument, Qt, QCoreApplication
+from tools import QEventHandler, CustomMainWindow
 from tools import tool
-from cfg.cfg import endecode_url
 import qtmodern.styles
 import uiautomator2 as u2
-from PySide2.QtWidgets import QApplication, QMessageBox, QTextBrowser, QWidget
+from PySide2.QtWidgets import QApplication, QMessageBox, QTextBrowser, QWidget, QTableWidgetItem
 import pyqtgraph as pg
 from PySide2.QtUiTools import QUiLoader
 import sys
@@ -16,10 +17,33 @@ from pyqtgraph.Qt import QtCore
 import datetime
 from aotudriver.get_info import GetInfo
 from Eingpan import activiting
-from PySide2.QtCore import Signal, QObject, QThread
+from PySide2.QtCore import Signal, QThread
 from PySide2.QtGui import QIcon
 import ctypes
-from PySide2 import QtCore, QtWidgets, QtUiTools
+from PySide2 import QtCore
+
+
+# =====================================================线程-start=================================================================#
+class package_record(QThread):
+    package_signal = Signal(str, str)
+
+    def __init__(self, old_package_name):
+        super().__init__()
+        self.old_package_name = old_package_name
+
+    def run(self):
+
+        def get_record():
+            package_name = stats.ui.packname_input.text()
+            newpackage_name = package_name
+            if str(package_name).strip() != '' and str(self.old_package_name) != str(newpackage_name):
+                record_time = datetime.datetime.now().strftime("%Y-%m-%d_%H:%M:%S")
+                self.package_signal.emit(str(package_name), str(record_time))
+                self.old_package_name = newpackage_name
+
+        while True:
+            get_record()
+            self.msleep(5000)
 
 
 class MySignals(QThread):
@@ -153,12 +177,30 @@ class checkSignals(QThread):
             self.compare_sha()
 
 
-# compare_sha(key_path, aab_path)
+# AES解码线程
+class aes_qt(QThread):
+    encode_signls = Signal(str)
+
+    def __init__(self, url):
+        super().__init__()
+        self.url = url
+
+    def run(self):
+        def endecode(url):
+            content = json.loads(tool.aes(url).decode('utf-8'))
+            content = QJsonDocument(content).toJson()
+            self.encode_signls.emit(str(content.data(), 'utf-8'))
+
+        endecode(self.url)
+
+
+# =====================================================线程-END=================================================================#
 
 
 class Stats:
 
     def __init__(self):
+        self.m = -1
         self.time = 0
         self.one = 0
         self.test_time = 0
@@ -174,6 +216,8 @@ class Stats:
 
         self.ui = QUiLoader().load(r'D:\protect\haiwaitest_v0.8\ui\main.ui')
         self.ui.setWindowTitle('haiwai_tools')
+
+        self.ui.tableView.resizeColumnsToContents()
         # 初始化按钮状态
         self.ui.stop_button.setEnabled(False)
         self.ui.process_start.setEnabled(True)
@@ -207,12 +251,54 @@ class Stats:
         # 时间重置
         self.ui.reset.clicked.connect(self.time_reset)
         # 解码
-        self.ui.encode_bt.clicked.connect(self.endecode)
+        self.ui.encode_bt.clicked.connect(self.encode_update)
         # 打开签名检验界面
-        self.ui.key_input.clicked.connect(self.open_check)
+        self.ui.key_aab.clicked.connect(self.open_check)
         self.ui.apk_path.installEventFilter(QEventHandler(self.ui.apk_path))
 
+        # 清理表格
+        self.ui.reset_table.clicked.connect(self.clear_table)
+        # 退出键
+        self.ui.exit.clicked.connect(self.exit)
+        # 最小化键
+        self.ui.minimized.clicked.connect(self.ui.showMinimized)
+        # 设定第1列的宽度为 180像素
+        self.ui.tableView.setColumnWidth(0, 180)
+        # 设定第2列的宽度为 100像素
+        self.ui.tableView.setColumnWidth(1, 100)
+        self.monitoring_packagename()
+
     ##=============================================================tab1=============================================================##
+
+    def exit(self):
+        self.monitor_thread.terminate()
+        for widget in QApplication.topLevelWidgets():
+            widget.close()
+
+        for thread in QCoreApplication.instance().children():
+            if isinstance(thread, QThread):
+                thread.quit()
+                thread.wait()
+
+    def clear_table(self):
+        self.ui.tableView.clearContents()
+
+    def monitoring_packagename(self):
+        self.monitor_thread = package_record(self.ui.packname_input.text())
+        self.monitor_thread.start()
+        self.monitor_thread.package_signal.connect(self.get_record_packagename)
+
+    def get_record_packagename(self, str1, str2):
+        self.m += 1
+        self.ui.tableView.insertRow(self.m)
+        item1 = QTableWidgetItem(str1)
+        item1.setTextAlignment(Qt.AlignCenter)
+        item2 = QTableWidgetItem(str2)
+        item2.setTextAlignment(Qt.AlignCenter)
+        self.ui.tableView.setItem(self.m, 0, item1)
+        self.ui.tableView.setItem(self.m, 1, item2)
+        self.monitor_thread.terminate()
+        self.monitoring_packagename()
 
     def count_down_t(self):
         self.ui.start_time.setEnabled(False)
@@ -269,19 +355,26 @@ class Stats:
             self.tips_windows.critical(
                 self.ui,
                 '错误',
-                '路径不能为空！')
+                '包名不能为空！')
             self.ui.stop_button.setEnabled(False)
             self.ui.process_start.setEnabled(True)
-            self.stop_timer()
+            self.ui.debug_install.setEnabled(True)
+            self.plot_thread.terminate()
             return
+        else:
+            return True
 
     def print_text(self, function):
         content = f'{datetime.datetime.now().strftime("%Y-%m-%d_%H:%M:%S")}\n==============logs=================\n{function}\n'
         self.ui.result_label.insertPlainText(content)
 
     def print_text2(self, function):
-        content = f'{datetime.datetime.now().strftime("%Y-%m-%d_%H:%M:%S")}\n==============logs=================\n{function}\n'
+        content = f'\n=============={datetime.datetime.now().strftime("%Y-%m-%d_%H:%M:%S")}：logs=================\n{function}\n'
         self.ui.proce_result.insertPlainText(content)
+
+    def print_text3(self, function):
+        content = f'\n=============={datetime.datetime.now().strftime("%Y-%m-%d_%H:%M:%S")}：logs====================\n{function}\n'
+        log.logs_ui.process_logs.insertPlainText(content)
 
     # 获取当前进程pid
     def pid_now(self):
@@ -363,7 +456,7 @@ class Stats:
         self.force_stop_num += 1
         cmd = f'adb shell am force-stop {self.get_packname()}'
         os.popen(cmd)
-        self.print_text2(f'手动强停{self.force_stop_num}次')
+        self.print_text3(f'手动强停{self.force_stop_num}次')
 
     def get_interval(self):
         interval = self.ui.interval.value()
@@ -371,6 +464,7 @@ class Stats:
 
     # 实时更新图
     def start_plot(self):
+        self.monitoring_packagename()
         # self.open_mainwindow2()
         self.ui.X_value1.clear()
         self.ui.Y_value1.clear()
@@ -382,9 +476,8 @@ class Stats:
         self.ui.historyPlot.setMouseEnabled(x=False, y=False)  # 鼠标xy都不能划动
         self.l = 30
         self.wrong_tip(self.get_packname())
-        # self.i = 0
-        # self.x = [0]
-        # self.y = [0]
+        if self.wrong_tip(self.get_packname()) == True:
+            self.open_logs()
 
         self.plot_thread = mysi
         self.clear_thread = clearqt
@@ -406,7 +499,7 @@ class Stats:
         self.ui.clear_time.setText(str1)
 
     def reset_report(self, str):
-        self.print_text2(str)
+        self.print_text3(str)
 
     def line(self, list1, list2, str3, str4):
         self.ui.X_value1.setText(str(list1[-1]))
@@ -417,6 +510,17 @@ class Stats:
     def plot(self, list1, list2):
         self.curve = self.ui.historyPlot.plot()
         self.curve.setData(list1, list2)
+
+    def encoded(self, str):
+        self.ui.input_msg.setPlainText(str)
+        self.encode_qt.terminate()
+        self.ui.encode_bt.setEnabled(True)
+
+    def encode_update(self):
+        self.ui.encode_bt.setEnabled(False)
+        self.encode_qt = aes_qt(self.ui.decode_msg.toPlainText())
+        self.encode_qt.start()
+        self.encode_qt.encode_signls.connect(self.encoded)
 
     # ====================================================主线程更新ui-end===============================================================##
 
@@ -438,6 +542,7 @@ class Stats:
         thread.start()
 
     def debug_install_t(self):
+        self.ui.debug_install.setEnabled(False)
         try:
             self.wrong_tip(self.get_apkpath())
 
@@ -450,6 +555,7 @@ class Stats:
                 acti = activiting(device)
                 self.print_text(acti.install_and_debug(apppath, debugpath))
                 self.ui.packname_input.setText(str(GetInfo().get_appPackagename(self.apppath)))
+                self.ui.debug_install.setEnabled(True)
 
             thread = threading.Thread(target=debug_install)
             thread.start()
@@ -457,21 +563,12 @@ class Stats:
             self.ui.result_label.insertPlainText(
                 f'{datetime.datetime.now().strftime("%Y-%m-%d_%H:%M:%S")}\n==============logs=================\ndebug安装失败,请重试或检查路径是否正确\n')
 
-    # def open_mainwindow2(self):
-    #
-    #     stats2.ui2.show()
-    #     app.exec_()
+    def open_logs(self):
+
+        log.logs_ui.show()
+        app.exec_()
 
     ##=============================================================tab2=======================================##
-
-    def endecode(self):
-        self.ui.input_msg.clear()
-        content = self.ui.decode_msg.toPlainText()
-        res = requests.get(content)
-        vlaue = res.json()['data']
-        url = endecode_url + vlaue
-        res = requests.get(url)
-        self.ui.input_msg.insertPlainText(res.text)
 
     def open_check(self):
         check.init()
@@ -490,6 +587,7 @@ class Check(QWidget):
         self.chcek_ui.aab_path.installEventFilter(QEventHandler(self.chcek_ui.aab_path))
         self.chcek_ui.clear_aab.clicked.connect(self.clear_query_1)
         self.chcek_ui.clear_key.clicked.connect(self.clear_query_0)
+
     def init(self):
         self.chcek_ui.check_result.clear()
         self.chcek_ui.key_sha1_re.clear()
@@ -548,7 +646,6 @@ class Check(QWidget):
         self.chcek_ui.compare.setEnabled(True)
         self.chcek_ui.query_aab.setEnabled(True)
 
-
     def aab_check_result(self, str1, str2, str3):
         self.chcek_ui.aab_sha1_re.setText(str1)
         self.chcek_ui.aab_sha256_re.setText(str2)
@@ -564,13 +661,12 @@ class Check(QWidget):
         self.chcek_ui.query_aab.setEnabled(True)
 
 
-
-class Stats2:
+class Logs:
     def __init__(self):
         loader = QUiLoader()
         loader.registerCustomWidget(pg.PlotWidget)
-        self.ui2 = QUiLoader().load(r'haiwaitest_tool_v0.8\ui\main2.ui')
-        self.ui2.setWindowTitle('process')
+        self.logs_ui = QUiLoader().load(r'D:\protect\haiwaitest_v0.8\ui\logs.ui')
+        self.logs_ui.setWindowTitle('logs')
 
 
 if __name__ == '__main__':
@@ -579,7 +675,10 @@ if __name__ == '__main__':
     ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(r"cfg\icon.png")
     check = Check()
     stats = Stats()
+    log = Logs()
     # stats2 = Stats2()
     qtmodern.styles.dark(app)
+    # stats.ui.setWindowFlags(stats.ui.windowFlags() | QtCore.Qt.FramelessWindowHint)
+    # CustomMainWindow(stats.ui).show()
     stats.ui.show()
     sys.exit(app.exec_())
