@@ -1,16 +1,19 @@
-
+import os
 import subprocess
 
 import time
 
+import uiautomator2
+
 from aotudriver.get_info import GetInfo
 from aotudriver import LayoutData
+
 
 class AotuDriver(object):
     def __init__(self, device, apppatn=None):
         # 对象级属性
         self.device = device
-        self.device.implicitly_wait(20)
+        # self.device.implicitly_wait(20)
         self.get_info = GetInfo()
         self.LayoutData = LayoutData()
         # 参数级属性
@@ -80,6 +83,7 @@ class AotuDriver(object):
         :return:
         """
         self.device.app_install(path)
+
     def get_device_info(self):
         """
         获取设备信息
@@ -88,6 +92,7 @@ class AotuDriver(object):
         return self.device.info
 
         # 定义传输文件方法，将电脑文件传入手机
+
     def Sending_files_from_your_phone(self, computer_file, phone_files):
         """
         将电脑文件传入手机
@@ -120,3 +125,11 @@ class AotuDriver(object):
         # 获取安卓版本，手机型号，手机品牌
         version = phone_value[2]
         return version
+
+    # def screenshot(self, num):
+    #     if os.path.exists('C:\\screencap') != True:
+    #         os.makedirs('C:\\screencap')
+    #     devices = uiautomator2.connect()
+    #     devices.screenshot(fr'C:\\screencap\screencap{num}.png')
+
+

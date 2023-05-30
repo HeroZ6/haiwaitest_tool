@@ -1,41 +1,46 @@
-import re
+import re, os
 import subprocess
+import time
 from PySide2 import QtCore
 from Crypto.Cipher import AES
 from Crypto.Util.Padding import pad, unpad
 import base64
 import requests
-from PySide2.QtCore import Qt
+from PySide2.QtCore import Qt, QPoint,QEvent
 from PySide2.QtGui import QMouseEvent
-from PySide2.QtWidgets import  QMainWindow
+from PySide2.QtWidgets import QMainWindow
+
 
 class Tool:
     # aab和签名文件是否匹配
-    def get_keystoreSha(self, key_path, pwd):
-        content = subprocess.Popen(f'keytool -list -v -keystore {key_path} -storepass {pwd}', stdout=subprocess.PIPE,
-                                   stderr=subprocess.PIPE)
-        out = content.communicate()[0].decode('gbk')
-        p = re.compile('(?<=SHA1:).+')
-        p2 = re.compile('(?<=SHA256:).+')
-        p3 = re.compile('(?<=MD5:).+')
-        key_Sha1 = p.findall(str(out))[0].strip()
-        key_Sha256 = p2.findall(str(out))[0].strip()
-        key_MD5 = p3.findall(str(out))[0].strip()
-        return key_Sha1, key_Sha256, key_MD5
+    def get_keystoreSha(self, key_path, pwd, work_path='C:\Program Files\Java'):
+        try:
+            content = subprocess.Popen(f'keytool -list -v -keystore {key_path} -storepass {pwd}',
+                                       stdout=subprocess.PIPE,
+                                       stderr=subprocess.PIPE, cwd=work_path)
+            out = content.communicate()[0].decode('gbk')
+            p = re.compile('(?<=SHA1:).+')
+            p2 = re.compile('(?<=SHA256:).+')
+            key_Sha1 = p.findall(str(out))[0].strip()
+            key_Sha256 = p2.findall(str(out))[0].strip()
+            return key_Sha1, key_Sha256
+        except NotADirectoryError as e:
+            return e
+        except IndexError as b:
+            return b
 
-    def get_aabkeystoreSha(self, aab_path):
-        content = subprocess.Popen(f'keytool -printcert -jarfile {aab_path}', stdout=subprocess.PIPE,
-                                   stderr=subprocess.PIPE)
-        out = content.communicate()[0].decode('gbk')
-
-        p = re.compile('(?<=SHA1:).+')
-        p2 = re.compile('(?<=SHA256:).+')
-        p3 = re.compile('(?<=MD5:).+')
-
-        aab_Sha1 = p.findall(str(out))[0].strip()
-        aab_Sha256 = p2.findall(str(out))[0].strip()
-        aab_MD5 = p3.findall(str(out))[0].strip()
-        return aab_Sha1, aab_Sha256, aab_MD5
+    def get_aabkeystoreSha(self, aab_path, work_path='C:\Program Files\Java'):
+        try:
+            content = subprocess.Popen(f'keytool -printcert -jarfile {aab_path}', stdout=subprocess.PIPE,
+                                       stderr=subprocess.PIPE, cwd=work_path)
+            out = content.communicate()[0].decode('gbk')
+            p = re.compile('(?<=SHA1:).+')
+            p2 = re.compile('(?<=SHA256:).+')
+            aab_Sha1 = p.findall(str(out))[0].strip()
+            aab_Sha256 = p2.findall(str(out))[0].strip()
+            return aab_Sha1, aab_Sha256
+        except IndexError as e:
+            return e
 
     # aes解密
 
@@ -65,6 +70,34 @@ class Tool:
         plaintext = self.aes_decrypt(ciphertext, key, iv)
         return plaintext
 
+    def screencap(self, num):
+        if os.path.exists('C:\\screencap') != True:
+            os.makedirs('C:\\screencap')
+
+        screencap_path = f'/sdcard/screencap{num}.png'
+        subprocess.Popen(f'adb shell screencap -p {screencap_path}', stdout=subprocess.PIPE,
+                         stderr=subprocess.PIPE)
+        time.sleep(1.8)
+        subprocess.Popen(f'adb pull {screencap_path} C:\\screencap', stdout=subprocess.PIPE,
+                         stderr=subprocess.PIPE)
+
+    import re
+
+    def has_chinese(self, string):
+        pattern = re.compile(r'[\一-\龥]')
+        match = pattern.search(string)
+        return match is not None
+
+    def install_source(self, str, path):
+        if str == '直接':
+            os.system(f'adb install {path}')
+        elif str == '华为商店':
+            os.system(f'adb install -i com.huawei.appmarket {path}')
+
+    def moni_battery(self, num):
+        cmd = f'adb shell dumpsys battery set level {num}'
+        os.system(cmd)
+
 
 tool = Tool()
 
@@ -88,33 +121,24 @@ class QEventHandler(QtCore.QObject):
         return super().eventFilter(obj, event)
 
 
-
-
-
-class CustomMainWindow(QMainWindow):
-    def __init__(self, parent=None):
+class MouseFilter(QtCore.QObject):
+    def __init__(self, parent):
         super().__init__(parent)
-        self.setWindowFlags(Qt.FramelessWindowHint)
+        self.dragging = False
+        self.drag_position = None
 
-    def mousePressEvent(self, event: QMouseEvent):
-        if event.button() == Qt.LeftButton:
-            self._is_dragging = True
-            self._mouse_pos = event.pos()
-
-    def mouseMoveEvent(self, event: QMouseEvent):
-        if self._is_dragging:
-            self.move(self.pos() + (event.pos() - self._mouse_pos))
-
-    def mouseReleaseEvent(self, event: QMouseEvent):
-        if event.button() == Qt.LeftButton:
-            self._is_dragging = False
-            self._mouse_pos = None
-
-
-if __name__ == '__main__':
-    url = 'https://s.suitwallland.com/appCfg/v38?value=YW5kSWQ9MzFkOWE5ZWRkOGZmOWYyOSZhcHBpZD0zODY2NiZjaGE9Z29vZ2xlJmxzbj0yNDI5NDU2MDImcGxhdGZvcm09YW5kcm9pZCZwcmppZD0zODY2NjAyNiZ0aW1lc3RhbXA9MTY4MzE3MjUyNjU4OSZzaWduPTkxYmM1OWZhYzJmZDU4YjZhYzkzNTJmMzNlNzdlYTU0JmlzRGVidWc9MQ%3D%3D'
-    pwd = 'dn123123'
-    # path = r"C:/Users/zhangxy/Desktop/1/overtest.keystore"
-    path1 = r'"C:\Users\zhangxy\Desktop\1\39254000.aab"'
-    # tool.get_keystoreSha(path, pwd)
-    print(tool.get_aabkeystoreSha(path1))
+    def eventFilter(self, obj, event):
+        if event.type() == QEvent.MouseButtonPress and event.button() == Qt.LeftButton:
+            self.dragging = True
+            self.drag_position = event.globalPos() - obj.frameGeometry().topLeft()
+            return True
+        elif event.type() == QEvent.MouseMove and self.dragging:
+            obj.move(event.globalPos() - self.drag_position)
+            return True
+        elif event.type() == QEvent.MouseButtonRelease and event.button() == Qt.LeftButton:
+            self.dragging = False
+            self.drag_position = None
+            return True
+        else:
+            return super().eventFilter(obj, event)
+# if __name__ == '__main__':

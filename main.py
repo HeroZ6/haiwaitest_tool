@@ -1,13 +1,14 @@
 import json
+import shutil
 import threading
 import time
-
+import qtmodern.windows
 from PySide2.QtCore import QJsonDocument, Qt, QCoreApplication
-from tools import QEventHandler, CustomMainWindow
+from tools import QEventHandler, MouseFilter
 from tools import tool
 import qtmodern.styles
 import uiautomator2 as u2
-from PySide2.QtWidgets import QApplication, QMessageBox, QTextBrowser, QWidget, QTableWidgetItem
+from PySide2.QtWidgets import QApplication, QMessageBox, QWidget, QTableWidgetItem
 import pyqtgraph as pg
 from PySide2.QtUiTools import QUiLoader
 import sys
@@ -18,7 +19,7 @@ import datetime
 from aotudriver.get_info import GetInfo
 from Eingpan import activiting
 from PySide2.QtCore import Signal, QThread
-from PySide2.QtGui import QIcon
+from PySide2.QtGui import QIcon, QPixmap
 import ctypes
 from PySide2 import QtCore
 
@@ -104,21 +105,23 @@ mysi = MySignals()
 
 # 清理数据线程
 class clearSignals(QThread):
-    clear_signals = Signal(str)
+    clear_signals = Signal()
+    time_signals = Signal(str)
     device_refresh = Signal(int)
 
     def __init__(self):
         super().__init__()
 
     def run(self):
-        self.l = 30
+        self.l = 120
         while True:
-            if int(self.l) <= int(30):
-                self.clear_signals.emit(str(f'{self.l}'))
+            if int(self.l) <= int(120):
+                self.time_signals.emit(str(f'{self.l}'))
                 self.l -= 1
                 if int(self.l) == 0:
-                    self.l = 30
+                    self.l = 120
                     self.device_refresh.emit(1)
+                    self.clear_signals.emit()
             self.msleep(1000)
 
 
@@ -128,47 +131,68 @@ clearqt = clearSignals()
 class checkSignals(QThread):
     check_signals = Signal(str)
     key_query_signals = Signal(str, str, str)
-    aab_query_signals = Signal(str, str, str)
+    aab_query_signals = Signal(str, str)
     check_result_signls = Signal(str)
 
     def __init__(self, param):
         super().__init__()
         self.param = param
 
+    def update_bt(self):
+        check.chcek_ui.query_key.setEnabled(True)
+        check.chcek_ui.query_aab.setEnabled(True)
+        check.chcek_ui.compare.setEnabled(True)
+
     def query_key(self):
         key_path = check.chcek_ui.key_path.text()
+        check.wrong_tip3(key_path)
         pwd = check.chcek_ui.pwd.text()
-        try:
-            if key_path != None and pwd != None:
-                key_query = tool.get_keystoreSha(key_path, pwd)
-                self.key_query_signals.emit(key_query[0], key_query[1], key_query[2])
-        except IndexError:
-            self.key_query_signals.emit('请检查密码是否正确且不能为空！！', None, None)
+        work_path = check.chcek_ui.work_path.text()
+        key_query = tool.get_keystoreSha(key_path, pwd, work_path)
+        print(key_query)
+        print(type(key_query))
+
+        if type(key_query) == NotADirectoryError:
+            self.key_query_signals.emit(None, None, 'key路径目录无效或密码不正确')
+            self.update_bt()
+            pass
+        elif type(key_query) == IndexError:
+            self.key_query_signals.emit(None, None, '请检查密码是否正确且不能为空！！或检查环境变量的jdk是否是11版本')
+            self.update_bt()
+        elif key_path != '' and pwd != '':
+            print(2)
+            self.key_query_signals.emit(key_query[0], key_query[1], None)
+            self.update_bt()
 
     def query_aab(self):
         aab_path = check.chcek_ui.aab_path.text()
-        try:
-            if aab_path != None:
-                aab_query = tool.get_aabkeystoreSha(aab_path)
-                self.aab_query_signals.emit(aab_query[0], aab_query[1], aab_query[2])
-        except IndexError:
-            self.aab_query_signals.emit('请检查路径是否正确且不能为空！！', None, None)
+        check.wrong_tip3(aab_path)
+        work_path = check.chcek_ui.work_path.text()
+        aab_query = tool.get_aabkeystoreSha(aab_path, work_path)
+        if type(aab_query) == IndexError:
+            self.aab_query_signals.emit('请检查文件路径是否正确', None)
+            self.update_bt()
+        elif aab_path != '':
+            aab_query = tool.get_aabkeystoreSha(aab_path, work_path)
+            self.aab_query_signals.emit(aab_query[0], aab_query[1])
 
     def compare_sha(self):
         try:
-            key_path = check.chcek_ui.key_path.text()
-            pwd = check.chcek_ui.pwd.text()
-            aab_path = check.chcek_ui.aab_path.text()
-            aab = tool.get_aabkeystoreSha(aab_path)
-
-            if aab[0] and aab[1] and aab[2] not in tool.get_keystoreSha(key_path, pwd):
-                self.check_result_signls.emit('匹配失败')
-            elif aab[0] and aab[1] and aab[2] in tool.get_keystoreSha(key_path, pwd):
+            aab_sha1 = check.chcek_ui.aab_sha1_re.text()
+            key_sha1 = check.chcek_ui.key_sha1_re.text()
+            aab_sha256 = check.chcek_ui.aab_sha1_re.text()
+            key_sha256 = check.chcek_ui.key_sha1_re.text()
+            if not (aab_sha256 and key_sha1 and aab_sha256 and key_sha256):
+                self.check_result_signls.emit('数据获取不完整，无法匹配')
+            elif aab_sha1 == key_sha1 and aab_sha256 == key_sha256:
                 self.check_result_signls.emit('匹配成功')
+            else:
+                self.check_result_signls.emit('匹配失败')
         except IndexError:
             self.check_result_signls.emit('数据获取不完整，无法匹配')
 
     def run(self):
+        check.wrong_tip2()
         if int(self.param) == 0:
             self.query_key()
         elif int(self.param) == 1:
@@ -194,6 +218,20 @@ class aes_qt(QThread):
         endecode(self.url)
 
 
+class screencapSignal(QThread):
+    screencap_signal = Signal(str)
+
+    def __init__(self, func, num):
+        super().__init__()
+        self.func = func
+        self.num = num
+
+    def run(self):
+        self.func()
+        self.screencap_signal.emit(self.num)
+        self.screencap_signal.connect(stats.show_pic)
+
+
 # =====================================================线程-END=================================================================#
 
 
@@ -216,7 +254,14 @@ class Stats:
 
         self.ui = QUiLoader().load(r'D:\protect\haiwaitest_v0.8\ui\main.ui')
         self.ui.setWindowTitle('haiwai_tools')
-
+        # 鼠标事件自定义拖动窗口
+        # self.mouse_filter = MouseFilter(self.ui)
+        # self.ui.setWindowFlags(Qt.CustomizeWindowHint | Qt.WindowTitleHint | Qt.WindowMinMaxButtonsHint)
+        self.ui.installEventFilter(MouseFilter(self.ui))
+        # self.ui.menuHook.setMouseTracking(True)
+        # self.ui.menuBar.installEventFilter(MouseFilter(self.ui.menuHook))
+        # self.ui.menuBar.installEventFilter(MouseFilter(self.ui.menuBar))
+        # label大小自适应
         self.ui.tableView.resizeColumnsToContents()
         # 初始化按钮状态
         self.ui.stop_button.setEnabled(False)
@@ -231,13 +276,14 @@ class Stats:
         # 进程监控绘图
         self.ui.process_start.clicked.connect(self.start_plot)
         # 清除绘图数据
-        self.ui.process_clear.clicked.connect(self.clear_process)
+        self.ui.process_clear.clicked.connect(self.clear_process_t)
         # 停止绘图进程
         self.ui.stop_button.clicked.connect(self.stop_timer)
         # 强停app
         self.ui.force_stop.clicked.connect(self.force_stop)
         # 卸载app
         self.ui.uninstall_bt.clicked.connect(self.uninstall)
+        self.ui.huawei_uninstall.clicked.connect(self.huawei_uninstall)
         # 直接安装
         self.ui.common_install.clicked.connect(self.install_apk_t)
         # debug安装
@@ -255,7 +301,8 @@ class Stats:
         # 打开签名检验界面
         self.ui.key_aab.clicked.connect(self.open_check)
         self.ui.apk_path.installEventFilter(QEventHandler(self.ui.apk_path))
-
+        self.ui.huawei_apk.installEventFilter(QEventHandler(self.ui.huawei_apk))
+        self.ui.save_path.installEventFilter(QEventHandler(self.ui.save_path))
         # 清理表格
         self.ui.reset_table.clicked.connect(self.clear_table)
         # 退出键
@@ -267,8 +314,39 @@ class Stats:
         # 设定第2列的宽度为 100像素
         self.ui.tableView.setColumnWidth(1, 100)
         self.monitoring_packagename()
+        # 截图
+        self.sreencap_qt1 = screencapSignal(self.sreencap1, 1)
+        self.sreencap_qt2 = screencapSignal(self.sreencap2, 2)
+        self.sreencap_qt3 = screencapSignal(self.sreencap3, 3)
+        self.sreencap_qt4 = screencapSignal(self.sreencap4, 4)
+        self.sreencap_qt5 = screencapSignal(self.sreencap5, 5)
+        self.ui.get_1.clicked.connect(self.sreencap_qt1.start)
+        self.ui.get_2.clicked.connect(self.sreencap_qt2.start)
+        self.ui.get_3.clicked.connect(self.sreencap_qt3.start)
+        self.ui.get_4.clicked.connect(self.sreencap_qt4.start)
+        self.ui.get_5.clicked.connect(self.sreencap_qt5.start)
 
+        self.ui.huawei_install.clicked.connect(self.install_source_t)
+        # 模拟电量
+        self.ui.simulate_battery.clicked.connect(self.moni_battery_t)
+        # 保存五图
+        self.ui.save_bt.clicked.connect(self.move_screencap)
+        # 更改主体色
+        self.ui.changeDark.triggered.connect(self.changedarkTheme)
+        self.ui.changeLight.triggered.connect(self.changelightTheme)
+        #logcat
+        self.ui.logcat.clicked.connect(self.open_logs2)
     ##=============================================================tab1=============================================================##
+
+    def open_logs2(self):
+
+        log2.logs_ui.show()
+        app.exec_()
+    def changedarkTheme(self):
+        qtmodern.styles.dark(app)
+
+    def changelightTheme(self):
+        qtmodern.styles.light(app)
 
     def exit(self):
         self.monitor_thread.terminate()
@@ -345,8 +423,6 @@ class Stats:
         p1 = re.compile('_(.*?)_')
         packname = p1.findall(content)[0].replace('_', '')
         self.ui.packname_input.setText(str(packname))
-        # self.ui.packname_input.setText(tools.get_packname2(self.fpath))
-        # except:
         self.ui.packname_input.setText('非规范文件名,安装后获取包名')
 
     # 错误弹窗
@@ -417,16 +493,17 @@ class Stats:
     # 结果栏
     def clear_result(self):
         self.ui.result_label.clear()
-        self.ui.proce_result.clear()
 
     # 进程栏
+    def clear_process_t(self):
+        self.cp_thread = threading.Thread(target=self.clear_process)
+        self.cp_thread.start()
     def clear_process(self):
         self.ui.historyPlot.clear()
         self.ui.X_value1.clear()
         self.ui.Y_value1.clear()
         self.ui.time_now.clear()
         self.ui.pid_c.clear()
-
     def time_reset(self):
         self.stop_timer2()
         self.ui.proce_result.clear()
@@ -465,7 +542,6 @@ class Stats:
     # 实时更新图
     def start_plot(self):
         self.monitoring_packagename()
-        # self.open_mainwindow2()
         self.ui.X_value1.clear()
         self.ui.Y_value1.clear()
         self.ui.time_now.clear()
@@ -484,7 +560,8 @@ class Stats:
         self.plot_thread.update_signal.connect(self.plot)
         self.plot_thread.line_signal.connect(self.line)
         self.plot_thread.reset_process.connect(self.reset_report)
-        self.clear_thread.clear_signals.connect(self.clear_time)
+        self.clear_thread.time_signals.connect(self.clear_time)
+        self.clear_thread.clear_signals.connect(self.clear_process)
         self.clear_thread.device_refresh.connect(self.get_devices)
         self.plot_thread.start()  # 1000ms更新一次
         self.clear_thread.start()
@@ -497,7 +574,6 @@ class Stats:
 
     def clear_time(self, str1):
         self.ui.clear_time.setText(str1)
-
     def reset_report(self, str):
         self.print_text3(str)
 
@@ -511,16 +587,17 @@ class Stats:
         self.curve = self.ui.historyPlot.plot()
         self.curve.setData(list1, list2)
 
-    def encoded(self, str):
-        self.ui.input_msg.setPlainText(str)
-        self.encode_qt.terminate()
-        self.ui.encode_bt.setEnabled(True)
-
-    def encode_update(self):
-        self.ui.encode_bt.setEnabled(False)
-        self.encode_qt = aes_qt(self.ui.decode_msg.toPlainText())
-        self.encode_qt.start()
-        self.encode_qt.encode_signls.connect(self.encoded)
+    def update_screencap(self, str1):
+        time.sleep(0.5)
+        for i in range(1, 6):
+            print(i)
+            if str(str1) == str(i):
+                pixmap = QPixmap(rf'C:\\\\screencap\\\\screencap{i}.png')
+                getattr(self.ui, f'pic_{i}').setPixmap(
+                    pixmap.scaled(getattr(self.ui, f'pic_{i}').size(), Qt.KeepAspectRatio, Qt.SmoothTransformation))
+                print('截图显示')
+                getattr(self.ui, f'get_{i}').setEnabled(True)
+            print('遍历')
 
     # ====================================================主线程更新ui-end===============================================================##
 
@@ -543,37 +620,96 @@ class Stats:
 
     def debug_install_t(self):
         self.ui.debug_install.setEnabled(False)
-        try:
-            self.wrong_tip(self.get_apkpath())
+        self.wrong_tip(self.get_apkpath())
 
-            def debug_install():
-                debugpath = r'D:\to'
-                self.apppath = self.ui.apk_path.text()
-                apppath = str(self.apppath).replace('"', '')
-                get = GetInfo()
-                device = u2.connect_usb(get.get_deviceids())
-                acti = activiting(device)
-                self.print_text(acti.install_and_debug(apppath, debugpath))
-                self.ui.packname_input.setText(str(GetInfo().get_appPackagename(self.apppath)))
+        def debug_install():
+            debugpath = r'D:\to'
+            self.apppath = self.ui.apk_path.text()
+            apppath = str(self.apppath).replace('"', '')
+            get = GetInfo()
+            device = u2.connect_usb(get.get_deviceids())
+            acti = activiting(device)
+            result = acti.install_and_debug(apppath, debugpath)
+            self.print_text(result)
+            if str(result) == '安装超时请重试':
                 self.ui.debug_install.setEnabled(True)
+            packname_result = GetInfo().get_appPackagename(self.apppath)
+            self.ui.packname_input.setText(str(packname_result))
+            self.ui.debug_install.setEnabled(True)
 
-            thread = threading.Thread(target=debug_install)
-            thread.start()
-        except:
-            self.ui.result_label.insertPlainText(
-                f'{datetime.datetime.now().strftime("%Y-%m-%d_%H:%M:%S")}\n==============logs=================\ndebug安装失败,请重试或检查路径是否正确\n')
-
+        thread = threading.Thread(target=debug_install)
+        thread.start()
     def open_logs(self):
 
         log.logs_ui.show()
         app.exec_()
 
     ##=============================================================tab2=======================================##
+    def encoded(self, str):
+        self.ui.input_msg.setPlainText(str)
+        self.encode_qt.terminate()
+        self.ui.encode_bt.setEnabled(True)
+
+    def encode_update(self):
+        self.ui.encode_bt.setEnabled(False)
+        self.encode_qt = aes_qt(self.ui.decode_msg.toPlainText())
+        self.encode_qt.start()
+        self.encode_qt.encode_signls.connect(self.encoded)
 
     def open_check(self):
         check.init()
         check.chcek_ui.show()
         app.exec_()
+
+    ##=============================================================tab3=============================================================##
+    def show_pic(self, num):
+        getattr(self.ui, f'get_{num}').setEnabled(False)
+        tool.screencap(num)
+        self.update_screencap(num)
+
+    def sreencap1(self):
+        self.show_pic(1)
+
+    def sreencap2(self):
+        self.show_pic(2)
+
+    def sreencap3(self):
+        self.show_pic(3)
+
+    def sreencap4(self):
+        self.show_pic(4)
+
+    def sreencap5(self):
+        self.show_pic(5)
+
+    def install_source_t(self):
+        path = self.ui.huawei_apk.text()
+        str = self.ui.comboBox.currentText()
+        self.ui.huawei_package.setText(GetInfo().get_appPackagename(path))
+        thread = threading.Thread(target=tool.install_source, args=(str, path))
+        thread.start()
+
+    def huawei_uninstall(self):
+        package_name = self.ui.huawei_package.text()
+        self.wrong_tip(package_name)
+        cmd = f'adb uninstall {package_name}'
+        os.popen(cmd)
+
+    def moni_battery_t(self):
+        num = self.ui.battery_num.value()
+        tool.moni_battery(num)
+
+    def move_screencap(self):
+        src_file = "C:/screencap"
+        dest_file = f'{self.ui.save_path.text()}'
+        name = dest_file.split('\\')[-1]
+        file_path = os.path.dirname(dest_file)
+        new_file = os.path.join(file_path, name)
+        print(new_file)
+        shutil.move(src_file, file_path)
+        reset_name = os.path.join(new_file, '/screencap')
+        print(reset_name)
+        os.rename(reset_name, new_file)
 
 
 class Check(QWidget):
@@ -587,23 +723,21 @@ class Check(QWidget):
         self.chcek_ui.aab_path.installEventFilter(QEventHandler(self.chcek_ui.aab_path))
         self.chcek_ui.clear_aab.clicked.connect(self.clear_query_1)
         self.chcek_ui.clear_key.clicked.connect(self.clear_query_0)
+        self.chcek_ui.work_path.returnPressed.connect(self.on_return_pressed)
 
     def init(self):
         self.chcek_ui.check_result.clear()
         self.chcek_ui.key_sha1_re.clear()
         self.chcek_ui.key_sha256_re.clear()
-        self.chcek_ui.key_md5_re.clear()
         self.chcek_ui.check_result.clear()
         self.chcek_ui.aab_sha1_re.clear()
         self.chcek_ui.aab_sha256_re.clear()
-        self.chcek_ui.aab_md5_re.clear()
         self.chcek_ui.check_result.clear()
 
     def clear_query_0(self):
         self.chcek_ui.check_result.clear()
         self.chcek_ui.key_sha1_re.clear()
         self.chcek_ui.key_sha256_re.clear()
-        self.chcek_ui.key_md5_re.clear()
         self.check_thread.terminate()
         self.chcek_ui.query_key.setEnabled(True)
         self.chcek_ui.query_aab.setEnabled(True)
@@ -612,7 +746,6 @@ class Check(QWidget):
         self.chcek_ui.check_result.clear()
         self.chcek_ui.aab_sha1_re.clear()
         self.chcek_ui.aab_sha256_re.clear()
-        self.chcek_ui.aab_md5_re.clear()
         self.check_thread.terminate()
         self.chcek_ui.query_key.setEnabled(True)
         self.chcek_ui.query_aab.setEnabled(True)
@@ -641,15 +774,14 @@ class Check(QWidget):
     def key_check_result(self, str1, str2, str3):
         self.chcek_ui.key_sha1_re.setText(str1)
         self.chcek_ui.key_sha256_re.setText(str2)
-        self.chcek_ui.key_md5_re.setText(str3)
+        self.chcek_ui.check_result.setText(str3)
         self.check_thread.terminate()
         self.chcek_ui.compare.setEnabled(True)
         self.chcek_ui.query_aab.setEnabled(True)
 
-    def aab_check_result(self, str1, str2, str3):
+    def aab_check_result(self, str1, str2):
         self.chcek_ui.aab_sha1_re.setText(str1)
         self.chcek_ui.aab_sha256_re.setText(str2)
-        self.chcek_ui.aab_md5_re.setText(str3)
         self.check_thread.terminate()
         self.chcek_ui.compare.setEnabled(True)
         self.chcek_ui.query_key.setEnabled(True)
@@ -660,6 +792,31 @@ class Check(QWidget):
         self.chcek_ui.query_key.setEnabled(True)
         self.chcek_ui.query_aab.setEnabled(True)
 
+    def wrong_tip2(self):
+        work_path = self.chcek_ui.work_path.text()
+        if work_path == '':
+            stats.tips_windows.critical(
+                stats.ui,
+                '错误',
+                'jdk路径不可为空！')
+            self.chcek_ui.query_key.setEnabled(True)
+            self.chcek_ui.query_aab.setEnabled(True)
+            self.chcek_ui.compare.setEnabled(True)
+
+    def wrong_tip3(self, path):
+        if path == '':
+            stats.tips_windows.critical(
+                stats.ui,
+                '错误',
+                '文件路径不可为空！')
+            self.chcek_ui.query_key.setEnabled(True)
+            self.chcek_ui.query_aab.setEnabled(True)
+            self.chcek_ui.compare.setEnabled(True)
+
+    def on_return_pressed(self):
+
+        self.chcek_ui.work_path.setText(r'C:\Program Files\Java\jdk-11.0.4')
+
 
 class Logs:
     def __init__(self):
@@ -667,18 +824,22 @@ class Logs:
         loader.registerCustomWidget(pg.PlotWidget)
         self.logs_ui = QUiLoader().load(r'D:\protect\haiwaitest_v0.8\ui\logs.ui')
         self.logs_ui.setWindowTitle('logs')
-
+class Logs2:
+    def __init__(self):
+        loader = QUiLoader()
+        loader.registerCustomWidget(pg.PlotWidget)
+        self.logs_ui = QUiLoader().load(r'D:\protect\haiwaitest_v0.8\ui\logcat.ui')
+        self.logs_ui.setWindowTitle('logs')
 
 if __name__ == '__main__':
     app = QApplication([])
-    app.setWindowIcon(QIcon(r'cfg\icon.ico'))
-    ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(r"cfg\icon.png")
+    app.setWindowIcon(QIcon(r'D:\protect\haiwaitest_v0.8\cfg\icon.ico'))
+    ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(r'D:\protect\haiwaitest_v0.8\cfg\icon.png')
     check = Check()
     stats = Stats()
     log = Logs()
-    # stats2 = Stats2()
+    log2 = Logs2()
     qtmodern.styles.dark(app)
-    # stats.ui.setWindowFlags(stats.ui.windowFlags() | QtCore.Qt.FramelessWindowHint)
-    # CustomMainWindow(stats.ui).show()
+    # stats.ui.setWindowFlags(QtCore.Qt.FramelessWindowHint)
     stats.ui.show()
     sys.exit(app.exec_())

@@ -14,6 +14,9 @@ class activiting:
         return phone_files
 
     def install_and_debug(self, apppath1, debugpath1):
-        self.base.app_install(apppath1)
-        self.base.Sending_files_from_your_phone(debugpath1, self.get_fullphonepath(apppath1))
+        try:
+            self.base.app_install(apppath1)
+            self.base.Sending_files_from_your_phone(debugpath1, self.get_fullphonepath(apppath1))
+        except RuntimeError:
+            return '安装超时请重试'
         return 'debug安装完成'

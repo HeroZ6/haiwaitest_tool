@@ -118,35 +118,22 @@
         </layout>
        </item>
        <item>
-        <layout class="QHBoxLayout" name="aab_MD5" stretch="1,9">
+        <layout class="QHBoxLayout" name="aab_MD5" stretch="0">
          <property name="spacing">
           <number>0</number>
          </property>
          <item>
-          <widget class="QLabel" name="aab_md5">
-           <property name="text">
-            <string>MD5：</string>
+          <spacer name="horizontalSpacer">
+           <property name="orientation">
+            <enum>Qt::Horizontal</enum>
            </property>
-           <property name="textFormat">
-            <enum>Qt::RichText</enum>
+           <property name="sizeHint" stdset="0">
+            <size>
+             <width>40</width>
+             <height>20</height>
+            </size>
            </property>
-           <property name="alignment">
-            <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-           </property>
-          </widget>
-         </item>
-         <item>
-          <widget class="QLabel" name="aab_md5_re">
-           <property name="text">
-            <string/>
-           </property>
-           <property name="textFormat">
-            <enum>Qt::RichText</enum>
-           </property>
-           <property name="alignment">
-            <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
-           </property>
-          </widget>
+          </spacer>
          </item>
         </layout>
        </item>
@@ -271,7 +258,7 @@
          <item>
           <widget class="QLabel" name="key_md5">
            <property name="text">
-            <string>MD5：</string>
+            <string>jdk环境变量：</string>
            </property>
            <property name="textFormat">
             <enum>Qt::RichText</enum>
@@ -282,15 +269,9 @@
           </widget>
          </item>
          <item>
-          <widget class="QLabel" name="key_md5_re">
-           <property name="text">
-            <string/>
-           </property>
-           <property name="textFormat">
-            <enum>Qt::RichText</enum>
-           </property>
-           <property name="alignment">
-            <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+          <widget class="QLineEdit" name="work_path">
+           <property name="placeholderText">
+            <string>请输入环境变量路径，回车可使用默认路径</string>
            </property>
           </widget>
          </item>

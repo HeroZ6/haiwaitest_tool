@@ -192,7 +192,7 @@ class GetInfo:
         (output, err) = p.communicate()
         match = re.compile("package: name='(\S+)' versionCode='(\d+)' versionName='(\S+)'").match(output.decode())
         if not match:
-            raise Exception("can't get packageinfo")
+            return "获取不到包名,请检查apk路径是否有中文"
         appPackage = match.group(1)
         return appPackage
 
