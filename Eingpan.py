@@ -1,6 +1,5 @@
 from aotudriver.aotudrivepy import AotuDriver
 from aotudriver.get_info import GetInfo
-import uiautomator2 as u2
 
 
 class activiting:

@@ -3,7 +3,6 @@ import os
 import re
 import subprocess
 
-import xlrd
 
 
 class GetInfo:
@@ -258,30 +257,7 @@ class GetInfo:
         return rows_num_list
 
 
-    # 返回包名信息表的数据，colsnum=那一列作为主键
-    def get_information_sheet(self, path,colsnum):
-        # 打开Excel文件
-        workbook = xlrd.open_workbook(path)
-        # 根据sheet索引或者名称获取sheet内容
-        Data_sheet = workbook.sheets()[0]
-        # 获得总行数，根据行数返回一个数字list
-        rows_num_list = self.get_Digital_list(Data_sheet.nrows)
-        # 定义获取一行的数据的list
-        rows_list = []
-        # 循环这个数字列表得到下标值
-        for i in rows_num_list:
-            # 处理下标值
-            i -= 1
-            # 根据循环的下标值得到每一行数据保存在rows_list变量中并返回
-            rows = Data_sheet.row_values(i)
-            rows_list.append(rows)
-        # 获取第二列内容
-        cols = Data_sheet.col_values(colsnum)
-        # 定义一个字典
-        appinfo_dict = {}
-        for index in range(Data_sheet.nrows):
-            appinfo_dict[cols[index]] = rows_list[index]
-        return appinfo_dict
+
 
 
 

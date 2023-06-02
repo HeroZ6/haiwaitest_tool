@@ -6,7 +6,7 @@ from Crypto.Cipher import AES
 from Crypto.Util.Padding import pad, unpad
 import base64
 import requests
-from PySide2.QtCore import Qt, QPoint,QEvent
+from PySide2.QtCore import Qt, QPoint, QEvent
 from PySide2.QtGui import QMouseEvent
 from PySide2.QtWidgets import QMainWindow
 
@@ -98,6 +98,10 @@ class Tool:
         cmd = f'adb shell dumpsys battery set level {num}'
         os.system(cmd)
 
+    def get_luj(self, position, name):
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        path = os.path.join(current_dir, position, name)
+        return path
 
 tool = Tool()
 

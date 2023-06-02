@@ -251,8 +251,8 @@ class Stats:
         self.force_stop_num = 0
         loader = QUiLoader()
         loader.registerCustomWidget(pg.PlotWidget)
-
-        self.ui = QUiLoader().load(r'D:\protect\haiwaitest_v0.8\ui\main.ui')
+        self.ui = QUiLoader().load(tool.get_luj('ui','main.ui'))
+        # self.ui = QUiLoader().load(r'D:\protect\haiwaitest_v0.8\ui\main.ui')
         self.ui.setWindowTitle('haiwai_tools')
         # 鼠标事件自定义拖动窗口
         # self.mouse_filter = MouseFilter(self.ui)
@@ -715,7 +715,8 @@ class Stats:
 class Check(QWidget):
     def __init__(self):
         super().__init__()
-        self.chcek_ui = QUiLoader().load(r'D:\protect\haiwaitest_v0.8\ui\checkui.ui')
+        self.chcek_ui = QUiLoader().load(tool.get_luj('ui','checkui.ui'))
+        # self.chcek_ui = QUiLoader().load(r'D:\protect\haiwaitest_v0.8\ui\checkui.ui')
         self.chcek_ui.query_key.clicked.connect(self.start_query_0)
         self.chcek_ui.query_aab.clicked.connect(self.start_query_1)
         self.chcek_ui.compare.clicked.connect(self.start_query_2)
@@ -822,24 +823,27 @@ class Logs:
     def __init__(self):
         loader = QUiLoader()
         loader.registerCustomWidget(pg.PlotWidget)
-        self.logs_ui = QUiLoader().load(r'D:\protect\haiwaitest_v0.8\ui\logs.ui')
+        self.logs_ui = QUiLoader().load(tool.get_luj('ui', 'logs.ui'))
+        # self.logs_ui = QUiLoader().load(r'D:\protect\haiwaitest_v0.8\ui\logs.ui')
         self.logs_ui.setWindowTitle('logs')
 class Logs2:
     def __init__(self):
         loader = QUiLoader()
         loader.registerCustomWidget(pg.PlotWidget)
+        self.logs_ui = QUiLoader().load(tool.get_luj('ui', 'logcat.ui'))
         self.logs_ui = QUiLoader().load(r'D:\protect\haiwaitest_v0.8\ui\logcat.ui')
         self.logs_ui.setWindowTitle('logs')
 
 if __name__ == '__main__':
     app = QApplication([])
-    app.setWindowIcon(QIcon(r'D:\protect\haiwaitest_v0.8\cfg\icon.ico'))
-    ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(r'D:\protect\haiwaitest_v0.8\cfg\icon.png')
     check = Check()
     stats = Stats()
     log = Logs()
     log2 = Logs2()
+    app.setWindowIcon(QIcon(tool.get_luj('cfg','icon.ico')))
+    # app.setWindowIcon(QIcon(r'D:\protect\haiwaitest_v0.8\cfg\icon.ico'))
+    ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(tool.get_luj('cfg','icon.png'))
+    # ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(r'D:\protect\haiwaitest_v0.8\cfg\icon.png')
     qtmodern.styles.dark(app)
-    # stats.ui.setWindowFlags(QtCore.Qt.FramelessWindowHint)
     stats.ui.show()
     sys.exit(app.exec_())
