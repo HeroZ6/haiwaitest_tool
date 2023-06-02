@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>826</width>
-    <height>706</height>
+    <width>830</width>
+    <height>715</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -1229,8 +1229,8 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>826</width>
-     <height>26</height>
+     <width>830</width>
+     <height>23</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuHook">

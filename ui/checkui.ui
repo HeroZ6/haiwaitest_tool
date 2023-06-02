@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>652</width>
-    <height>325</height>
+    <width>518</width>
+    <height>356</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -30,7 +30,7 @@
        <item>
         <widget class="QLineEdit" name="aab_path">
          <property name="placeholderText">
-          <string>请选择aab文件</string>
+          <string>请选择aab或apk文件</string>
          </property>
         </widget>
        </item>
@@ -319,7 +319,7 @@
      <item>
       <widget class="QPushButton" name="query_aab">
        <property name="text">
-        <string>查询aab</string>
+        <string>查询aab/apk</string>
        </property>
       </widget>
      </item>

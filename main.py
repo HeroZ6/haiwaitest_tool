@@ -251,16 +251,13 @@ class Stats:
         self.force_stop_num = 0
         loader = QUiLoader()
         loader.registerCustomWidget(pg.PlotWidget)
-        self.ui = QUiLoader().load(tool.get_luj('ui','main.ui'))
-        # self.ui = QUiLoader().load(r'D:\protect\haiwaitest_v0.8\ui\main.ui')
+        # self.ui = QUiLoader().load(tool.get_luj('ui', 'main.ui'))
+        self.ui = QUiLoader().load(tool.resource_path('ui/main.ui'))
         self.ui.setWindowTitle('haiwai_tools')
         # 鼠标事件自定义拖动窗口
         # self.mouse_filter = MouseFilter(self.ui)
         # self.ui.setWindowFlags(Qt.CustomizeWindowHint | Qt.WindowTitleHint | Qt.WindowMinMaxButtonsHint)
         self.ui.installEventFilter(MouseFilter(self.ui))
-        # self.ui.menuHook.setMouseTracking(True)
-        # self.ui.menuBar.installEventFilter(MouseFilter(self.ui.menuHook))
-        # self.ui.menuBar.installEventFilter(MouseFilter(self.ui.menuBar))
         # label大小自适应
         self.ui.tableView.resizeColumnsToContents()
         # 初始化按钮状态
@@ -334,14 +331,16 @@ class Stats:
         # 更改主体色
         self.ui.changeDark.triggered.connect(self.changedarkTheme)
         self.ui.changeLight.triggered.connect(self.changelightTheme)
-        #logcat
+        # logcat
         self.ui.logcat.clicked.connect(self.open_logs2)
+
     ##=============================================================tab1=============================================================##
 
     def open_logs2(self):
 
         log2.logs_ui.show()
         app.exec_()
+
     def changedarkTheme(self):
         qtmodern.styles.dark(app)
 
@@ -357,6 +356,7 @@ class Stats:
             if isinstance(thread, QThread):
                 thread.quit()
                 thread.wait()
+
     def get_devices(self):
         cmd = 'adb shell getprop ro.product.model'
         device = os.popen(cmd).read()
@@ -365,8 +365,8 @@ class Stats:
             return 0
         else:
             self.ui.device_info.setText(f'{str(device)}')
-            return 1
-    def check_usb(self,str):
+
+    def check_usb(self, str):
         print(str)
         if str == 0:
             self.ui.debug_install.setEnabled(True)
@@ -419,8 +419,6 @@ class Stats:
             self.ui.start_time.setEnabled(True)
             self.ui.reset.setEnabled(False)
 
-
-
     # 截取路径
     def get_path(self):
         # try:
@@ -448,11 +446,13 @@ class Stats:
             return
         else:
             return True
+
     def wrong_tip3(self):
         self.tips_windows.critical(
             self.ui,
             '错误',
             '设备未连接！')
+
     def print_text(self, function):
         content = f'{datetime.datetime.now().strftime("%Y-%m-%d_%H:%M:%S")}\n==============logs=================\n{function}\n'
         self.ui.result_label.insertPlainText(content)
@@ -511,12 +511,14 @@ class Stats:
     def clear_process_t(self):
         self.cp_thread = threading.Thread(target=self.clear_process)
         self.cp_thread.start()
+
     def clear_process(self):
         self.ui.historyPlot.clear()
         self.ui.X_value1.clear()
         self.ui.Y_value1.clear()
         self.ui.time_now.clear()
         self.ui.pid_c.clear()
+
     def time_reset(self):
         self.stop_timer2()
         self.ui.proce_result.clear()
@@ -582,10 +584,12 @@ class Stats:
     def clear_plot(self):
         self.ui.historyPlot.clear()
         print(f'{datetime.datetime.now().strftime("%H:%M:%S")}\n清除一次\n')
+
     # ====================================================主线程更新ui-start===============================================================##
 
     def clear_time(self, str1):
         self.ui.clear_time.setText(str1)
+
     def reset_report(self, str):
         self.print_text3(str)
 
@@ -652,6 +656,7 @@ class Stats:
 
         thread = threading.Thread(target=debug_install)
         thread.start()
+
     def open_logs(self):
 
         log.logs_ui.show()
@@ -728,8 +733,7 @@ class Stats:
 class Check(QWidget):
     def __init__(self):
         super().__init__()
-        self.chcek_ui = QUiLoader().load(tool.get_luj('ui','checkui.ui'))
-        # self.chcek_ui = QUiLoader().load(r'D:\protect\haiwaitest_v0.8\ui\checkui.ui')
+        self.chcek_ui = QUiLoader().load(tool.get_luj('ui', 'checkui.ui'))
         self.chcek_ui.query_key.clicked.connect(self.start_query_0)
         self.chcek_ui.query_aab.clicked.connect(self.start_query_1)
         self.chcek_ui.compare.clicked.connect(self.start_query_2)
@@ -836,16 +840,19 @@ class Logs:
     def __init__(self):
         loader = QUiLoader()
         loader.registerCustomWidget(pg.PlotWidget)
-        self.logs_ui = QUiLoader().load(tool.get_luj('ui', 'logs.ui'))
-        # self.logs_ui = QUiLoader().load(r'D:\protect\haiwaitest_v0.8\ui\logs.ui')
+        # self.logs_ui = QUiLoader().load(tool.get_luj('ui', 'logs.ui'))
+        self.logs_ui = QUiLoader().load(tool.resource_path('ui/logs.ui'))
         self.logs_ui.setWindowTitle('logs')
+
+
 class Logs2:
     def __init__(self):
         loader = QUiLoader()
         loader.registerCustomWidget(pg.PlotWidget)
-        self.logs_ui = QUiLoader().load(tool.get_luj('ui', 'logcat.ui'))
-        # self.logs_ui = QUiLoader().load(r'D:\protect\haiwaitest_v0.8\ui\logcat.ui')
+        # self.logs_ui = QUiLoader().load(tool.get_luj('ui', 'logcat.ui'))
+        self.logs_ui = QUiLoader().load(tool.resource_path('ui/logcat.ui'))
         self.logs_ui.setWindowTitle('logs')
+
 
 if __name__ == '__main__':
     app = QApplication([])
@@ -853,10 +860,10 @@ if __name__ == '__main__':
     stats = Stats()
     log = Logs()
     log2 = Logs2()
-    app.setWindowIcon(QIcon(tool.get_luj('cfg','icon.ico')))
-    # app.setWindowIcon(QIcon(r'D:\protect\haiwaitest_v0.8\cfg\icon.ico'))
-    ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(tool.get_luj('cfg','icon.png'))
-    # ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(r'D:\protect\haiwaitest_v0.8\cfg\icon.png')
+    # app.setWindowIcon(QIcon(tool.get_luj('cfg', 'icon.ico')))
+    app.setWindowIcon(QIcon(tool.resource_path('cfg/icon.ico')))
+    # ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(tool.get_luj('cfg', 'icon.png'))
+    ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(tool.resource_path('cfg/icon.png'))
     qtmodern.styles.dark(app)
     stats.ui.show()
     sys.exit(app.exec_())

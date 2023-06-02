@@ -1,5 +1,6 @@
 import re, os
 import subprocess
+import sys
 import time
 from PySide2 import QtCore
 from Crypto.Cipher import AES
@@ -41,7 +42,6 @@ class Tool:
             return aab_Sha1, aab_Sha256
         except IndexError as e:
             return e
-
     # aes解密
 
     # 定义PKCS7填充和反填充函数
@@ -103,7 +103,15 @@ class Tool:
         path = os.path.join(current_dir, position, name)
         return path
 
+    def resource_path(self,relative_path):
+        """获取程序中所需文件资源的绝对路径"""
+        try:
+            # PyInstaller创建临时文件夹,将路径存储于_MEIPASS
+            base_path = sys._MEIPASS
+        except Exception:
+            base_path = os.path.abspath(".")
 
+        return os.path.join(base_path, relative_path)
 tool = Tool()
 
 
