@@ -239,11 +239,13 @@ class GetInfo:
         得到与电脑连接设备第一个的序列号
         :return: 返回与电脑连接设备第一个的序列号
         """
-        device = os.popen("adb devices").readlines()
-        device_id = device[1]
-        deviceID = device_id.split()
-        return deviceID[0]
-
+        try:
+            device = os.popen("adb devices").readlines()
+            device_id = device[1]
+            deviceID = device_id.split()
+            return deviceID[0]
+        except Exception:
+            return '未连接设备'
     # 传入一个整数，返回一个1-X的列表
     def get_Digital_list(self, num):
         """

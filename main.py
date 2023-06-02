@@ -357,6 +357,21 @@ class Stats:
             if isinstance(thread, QThread):
                 thread.quit()
                 thread.wait()
+    def get_devices(self):
+        cmd = 'adb shell getprop ro.product.model'
+        device = os.popen(cmd).read()
+        if device == '':
+            self.ui.device_info.setText('设备未连接,或未打开usb调试')
+            return 0
+        else:
+            self.ui.device_info.setText(f'{str(device)}')
+            return 1
+    def check_usb(self,str):
+        print(str)
+        if str == 0:
+            self.ui.debug_install.setEnabled(True)
+            self.wrong_tip3()
+            return '未连接设备'
 
     def clear_table(self):
         self.ui.tableView.clearContents()
@@ -404,13 +419,7 @@ class Stats:
             self.ui.start_time.setEnabled(True)
             self.ui.reset.setEnabled(False)
 
-    def get_devices(self):
-        cmd = 'adb shell getprop ro.product.model'
-        device = os.popen(cmd).read()
-        if None:
-            self.ui.device_info.setText('设备未连接,或未打开usb调试')
-        else:
-            self.ui.device_info.setText(f'{str(device)}')
+
 
     # 截取路径
     def get_path(self):
@@ -439,7 +448,11 @@ class Stats:
             return
         else:
             return True
-
+    def wrong_tip3(self):
+        self.tips_windows.critical(
+            self.ui,
+            '错误',
+            '设备未连接！')
     def print_text(self, function):
         content = f'{datetime.datetime.now().strftime("%Y-%m-%d_%H:%M:%S")}\n==============logs=================\n{function}\n'
         self.ui.result_label.insertPlainText(content)
@@ -569,7 +582,6 @@ class Stats:
     def clear_plot(self):
         self.ui.historyPlot.clear()
         print(f'{datetime.datetime.now().strftime("%H:%M:%S")}\n清除一次\n')
-
     # ====================================================主线程更新ui-start===============================================================##
 
     def clear_time(self, str1):
@@ -623,6 +635,7 @@ class Stats:
         self.wrong_tip(self.get_apkpath())
 
         def debug_install():
+            self.print_text(self.check_usb(self.get_devices()))
             debugpath = r'D:\to'
             self.apppath = self.ui.apk_path.text()
             apppath = str(self.apppath).replace('"', '')
