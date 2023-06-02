@@ -831,7 +831,7 @@ class Logs2:
         loader = QUiLoader()
         loader.registerCustomWidget(pg.PlotWidget)
         self.logs_ui = QUiLoader().load(tool.get_luj('ui', 'logcat.ui'))
-        self.logs_ui = QUiLoader().load(r'D:\protect\haiwaitest_v0.8\ui\logcat.ui')
+        # self.logs_ui = QUiLoader().load(r'D:\protect\haiwaitest_v0.8\ui\logcat.ui')
         self.logs_ui.setWindowTitle('logs')
 
 if __name__ == '__main__':
